@@ -64,6 +64,165 @@ fn build_safety_settings() -> Value {
     ])
 }
 
+// ===== Smart Context Compression Constants =====
+// These thresholds control how historical messages are compressed to save context space
+
+/// Max chars for historical tool results (current turn uses existing 200K limit)
+const HISTORY_TOOL_RESULT_MAX_CHARS: usize = 5_000;
+/// Threshold for long text compression
+const LONG_TEXT_THRESHOLD: usize = 50_000;
+/// Chars to keep at start and end of long text
+const LONG_TEXT_KEEP_EACH: usize = 20_000;
+
+// ===== Smart Context Compression Functions =====
+
+/// Compress historical thinking blocks by replacing content with placeholder
+/// Keeps signature intact for validation
+fn compress_thinking_in_history(messages: &mut [Message], current_msg_index: usize) {
+    for (i, msg) in messages.iter_mut().enumerate() {
+        // Only compress historical messages (not the current/last few)
+        if i >= current_msg_index.saturating_sub(2) {
+            continue;
+        }
+
+        if msg.role != "assistant" {
+            continue;
+        }
+
+        if let MessageContent::Array(blocks) = &mut msg.content {
+            for block in blocks.iter_mut() {
+                if let ContentBlock::Thinking {
+                    thinking,
+                    signature,
+                    ..
+                } = block
+                {
+                    if thinking.len() > 100 {
+                        let original_len = thinking.len();
+                        *thinking = "[Thinking process omitted to save context]".to_string();
+                        tracing::debug!(
+                            "[Context-Compression] Compressed thinking block: {} -> {} chars",
+                            original_len,
+                            thinking.len()
+                        );
+                    }
+                    // Keep signature intact - it's needed for validation
+                    let _ = signature; // Explicitly acknowledge we're keeping it
+                }
+            }
+        }
+    }
+}
+
+/// Compress historical tool results that exceed the threshold
+fn compress_tool_results_in_history(messages: &mut [Message], current_msg_index: usize) {
+    for (i, msg) in messages.iter_mut().enumerate() {
+        // Only compress historical messages
+        if i >= current_msg_index.saturating_sub(1) {
+            continue;
+        }
+
+        if msg.role != "user" {
+            continue;
+        }
+
+        if let MessageContent::Array(blocks) = &mut msg.content {
+            for block in blocks.iter_mut() {
+                if let ContentBlock::ToolResult { content, .. } = block {
+                    let content_str = content.to_string();
+                    if content_str.len() > HISTORY_TOOL_RESULT_MAX_CHARS {
+                        let truncated: String = content_str
+                            .chars()
+                            .take(HISTORY_TOOL_RESULT_MAX_CHARS)
+                            .collect();
+                        *content = serde_json::Value::String(format!(
+                            "{}...[truncated from {} chars]",
+                            truncated,
+                            content_str.len()
+                        ));
+                        tracing::debug!(
+                            "[Context-Compression] Compressed tool result: {} -> {} chars",
+                            content_str.len(),
+                            HISTORY_TOOL_RESULT_MAX_CHARS
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Compress long text blocks by keeping only start and end portions
+fn compress_long_text_blocks(messages: &mut [Message], current_msg_index: usize) {
+    for (i, msg) in messages.iter_mut().enumerate() {
+        // Only compress historical messages
+        if i >= current_msg_index.saturating_sub(1) {
+            continue;
+        }
+
+        if let MessageContent::Array(blocks) = &mut msg.content {
+            for block in blocks.iter_mut() {
+                if let ContentBlock::Text { text } = block {
+                    if text.len() > LONG_TEXT_THRESHOLD {
+                        let original_len = text.len();
+                        let start: String = text.chars().take(LONG_TEXT_KEEP_EACH).collect();
+                        let end: String = text
+                            .chars()
+                            .skip(text.len() - LONG_TEXT_KEEP_EACH)
+                            .collect();
+                        *text = format!(
+                            "{}...\n\n[...{} chars omitted...]\n\n...{}",
+                            start,
+                            original_len - LONG_TEXT_KEEP_EACH * 2,
+                            end
+                        );
+                        tracing::debug!(
+                            "[Context-Compression] Compressed long text: {} -> {} chars",
+                            original_len,
+                            text.len()
+                        );
+                    }
+                }
+            }
+        }
+
+        // Also handle string content
+        if let MessageContent::String(text) = &mut msg.content {
+            if text.len() > LONG_TEXT_THRESHOLD {
+                let original_len = text.len();
+                let start: String = text.chars().take(LONG_TEXT_KEEP_EACH).collect();
+                let end: String = text
+                    .chars()
+                    .skip(text.len() - LONG_TEXT_KEEP_EACH)
+                    .collect();
+                *text = format!(
+                    "{}...\n\n[...{} chars omitted...]\n\n...{}",
+                    start,
+                    original_len - LONG_TEXT_KEEP_EACH * 2,
+                    end
+                );
+            }
+        }
+    }
+}
+
+/// Apply all compression strategies to message history
+/// Call this before building contents to reduce context size
+fn compress_message_history(messages: &mut [Message]) {
+    let msg_count = messages.len();
+    if msg_count <= 4 {
+        // Don't compress very short conversations
+        return;
+    }
+
+    tracing::debug!("[Context-Compression] Compressing {} messages", msg_count);
+
+    // Apply compression in order of impact
+    compress_thinking_in_history(messages, msg_count);
+    compress_tool_results_in_history(messages, msg_count);
+    compress_long_text_blocks(messages, msg_count);
+}
+
 /// 清理消息中的 cache_control 字段
 ///
 /// 这个函数会深度遍历所有消息内容块,移除 cache_control 字段。
@@ -188,6 +347,10 @@ pub fn transform_claude_request_in(
     // [FIX #564] Pre-sort thinking blocks to be first in assistant messages
     // This handles cases where context compression (kilo) incorrectly reorders blocks
     sort_thinking_blocks_first(&mut cleaned_req.messages);
+
+    // [NEW] Smart context compression to prevent "Prompt is too long" errors
+    // Compresses historical thinking blocks, tool results, and long text
+    compress_message_history(&mut cleaned_req.messages);
 
     let claude_req = &cleaned_req; // 后续使用清理后的请求
 

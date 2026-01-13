@@ -23,6 +23,12 @@ use std::sync::atomic::Ordering;
 const MAX_RETRY_ATTEMPTS: usize = 3;
 const MIN_SIGNATURE_LENGTH: usize = 10;  // 最小有效签名长度
 
+// ===== Context Window Protection Constants =====
+// These thresholds help prevent "Prompt is too long" errors
+const MAX_INPUT_TOKENS: usize = 100_000;          // Max input tokens (leave room for output)
+const CHARS_PER_TOKEN: usize = 4;                 // Approximate chars per token
+const MIN_MESSAGES_TO_KEEP: usize = 4;            // Always keep at least N recent messages
+
 // ===== Model Constants for Background Tasks =====
 // These can be adjusted for performance/cost optimization
 const BACKGROUND_MODEL_LITE: &str = "gemini-2.5-flash-lite";  // For simple/lightweight tasks
@@ -34,7 +40,111 @@ const BACKGROUND_MODEL_STANDARD: &str = "gemini-2.5-flash";   // For complex bac
 
 // ===== Thinking 块处理辅助函数 =====
 
-use crate::proxy::mappers::claude::models::{ContentBlock, Message, MessageContent};
+use crate::proxy::mappers::claude::models::{ContentBlock, Message, MessageContent, SystemPrompt};
+
+// ===== Context Window Protection Functions =====
+
+/// Estimate the number of tokens in a Claude request
+/// Uses a simple heuristic: ~4 characters per token
+fn estimate_request_tokens(request: &ClaudeRequest) -> usize {
+    let mut total_chars = 0;
+    
+    // 1. System prompt
+    if let Some(system) = &request.system {
+        total_chars += match system {
+            SystemPrompt::String(s) => s.len(),
+            SystemPrompt::Array(blocks) => blocks.iter().map(|b| b.text.len()).sum(),
+        };
+    }
+    
+    // 2. Messages
+    for msg in &request.messages {
+        match &msg.content {
+            MessageContent::String(s) => total_chars += s.len(),
+            MessageContent::Array(blocks) => {
+                for block in blocks {
+                    total_chars += match block {
+                        ContentBlock::Text { text } => text.len(),
+                        ContentBlock::Thinking { thinking, .. } => thinking.len(),
+                        ContentBlock::ToolUse { input, .. } => input.to_string().len(),
+                        ContentBlock::ToolResult { content, .. } => content.to_string().len(),
+                        ContentBlock::Image { .. } => 1000, // Estimate for image tokens
+                        ContentBlock::Document { .. } => 5000, // Estimate for document
+                        _ => 100, // Default estimate for other blocks
+                    };
+                }
+            }
+        }
+    }
+    
+    // 3. Tools definitions
+    if let Some(tools) = &request.tools {
+        for tool in tools {
+            total_chars += serde_json::to_string(tool).map(|s| s.len()).unwrap_or(500);
+        }
+    }
+    
+    total_chars / CHARS_PER_TOKEN
+}
+
+/// Truncate message history if estimated tokens exceed the limit
+/// Returns (was_truncated, removed_count)
+fn truncate_messages_if_needed(messages: &mut Vec<Message>, max_tokens: usize) -> (bool, usize) {
+    // Quick estimate of current token count
+    let estimate_message_tokens = |msgs: &[Message]| -> usize {
+        let chars: usize = msgs.iter().map(|m| {
+            match &m.content {
+                MessageContent::String(s) => s.len(),
+                MessageContent::Array(blocks) => blocks.iter().map(|b| {
+                    match b {
+                        ContentBlock::Text { text } => text.len(),
+                        ContentBlock::Thinking { thinking, .. } => thinking.len(),
+                        ContentBlock::ToolUse { input, .. } => input.to_string().len(),
+                        ContentBlock::ToolResult { content, .. } => content.to_string().len(),
+                        _ => 500,
+                    }
+                }).sum(),
+            }
+        }).sum();
+        chars / CHARS_PER_TOKEN
+    };
+    
+    let current_tokens = estimate_message_tokens(messages);
+    
+    if current_tokens <= max_tokens {
+        return (false, 0);
+    }
+    
+    let original_count = messages.len();
+    
+    // Strategy: Remove oldest messages while keeping at least MIN_MESSAGES_TO_KEEP
+    while messages.len() > MIN_MESSAGES_TO_KEEP && estimate_message_tokens(messages) > max_tokens {
+        // Remove from the front (oldest messages)
+        messages.remove(0);
+    }
+    
+    let removed_count = original_count - messages.len();
+    
+    if removed_count > 0 {
+        tracing::warn!(
+            "[Context-Protection] Truncated {} old messages to fit context window. \
+             Original: {} msgs (~{} tokens), Now: {} msgs",
+            removed_count,
+            original_count,
+            current_tokens,
+            messages.len()
+        );
+        
+        // Insert a marker at the beginning to indicate truncation
+        if !messages.is_empty() && messages[0].role == "user" {
+            if let MessageContent::String(ref mut text) = messages[0].content {
+                *text = format!("[Earlier conversation truncated to fit context window]\n\n{}", text);
+            }
+        }
+    }
+    
+    (removed_count > 0, removed_count)
+}
 
 /// 检查 thinking 块是否有有效签名
 fn has_valid_signature(block: &ContentBlock) -> bool {
@@ -358,6 +468,22 @@ pub async fn handle_messages(
 
     // [CRITICAL FIX] 过滤并修复 Thinking 块签名
     filter_invalid_thinking_blocks(&mut request.messages);
+
+    // [NEW] Context Window Protection: Estimate tokens and truncate if needed
+    let estimated_tokens = estimate_request_tokens(&request);
+    if estimated_tokens > MAX_INPUT_TOKENS {
+        tracing::warn!(
+            "[{}] ⚠️ Request exceeds token limit: ~{} tokens (max: {}). Truncating history...",
+            trace_id, estimated_tokens, MAX_INPUT_TOKENS
+        );
+        let (truncated, removed) = truncate_messages_if_needed(&mut request.messages, MAX_INPUT_TOKENS);
+        if truncated {
+            tracing::info!(
+                "[{}] ✂️ Truncated {} messages to fit context window",
+                trace_id, removed
+            );
+        }
+    }
 
     // [New] Recover from broken tool loops (where signatures were stripped)
     // This prevents "Assistant message must start with thinking" errors by closing the loop with synthetic messages
