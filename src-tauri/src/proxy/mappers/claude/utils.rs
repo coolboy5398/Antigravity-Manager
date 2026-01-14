@@ -64,7 +64,7 @@ mod tests {
             cached_content_token_count: None,
         };
 
-        let claude_usage = to_claude_usage(&usage);
+        let claude_usage = to_claude_usage(&usage, true);
         assert_eq!(claude_usage.input_tokens, 100);
         assert_eq!(claude_usage.output_tokens, 50);
     }
