@@ -66,22 +66,22 @@ fn build_safety_settings() -> Value {
 }
 
 /// 清理消息中的 cache_control 字段
-/// 
+///
 /// 这个函数会深度遍历所有消息内容块,移除 cache_control 字段。
 /// 这是必要的,因为:
 /// 1. VS Code 等客户端会将历史消息(包含 cache_control)原封不动发回
 /// 2. Anthropic API 不接受请求中包含 cache_control 字段
 /// 3. 即使是转发到 Gemini,也应该清理以保持协议纯净性
-/// 
+///
 /// [FIX #593] 增强版本:添加详细日志用于调试 MCP 工具兼容性问题
 pub fn clean_cache_control_from_messages(messages: &mut [Message]) {
     tracing::info!(
         "[DEBUG-593] Starting cache_control cleanup for {} messages",
         messages.len()
     );
-    
+
     let mut total_cleaned = 0;
-    
+
     for (idx, msg) in messages.iter_mut().enumerate() {
         if let MessageContent::Array(blocks) = &mut msg.content {
             for (block_idx, block) in blocks.iter_mut().enumerate() {
@@ -136,7 +136,7 @@ pub fn clean_cache_control_from_messages(messages: &mut [Message]) {
             }
         }
     }
-    
+
     if total_cleaned > 0 {
         tracing::info!(
             "[DEBUG-593] Cache control cleanup complete: removed {} cache_control fields",
@@ -148,7 +148,7 @@ pub fn clean_cache_control_from_messages(messages: &mut [Message]) {
 }
 
 /// [FIX #593] 递归深度清理 JSON 中的 cache_control 字段
-/// 
+///
 /// 用于处理嵌套结构和非标准位置的 cache_control。
 /// 这是最后一道防线,确保发送给 Antigravity 的请求中不包含任何 cache_control。
 fn deep_clean_cache_control(value: &mut Value) {
@@ -171,7 +171,7 @@ fn deep_clean_cache_control(value: &mut Value) {
 }
 
 /// [FIX #564] Sort blocks in assistant messages to ensure thinking blocks are first
-/// 
+///
 /// When context compression (kilo) reorders message blocks, thinking blocks may appear
 /// after text blocks. Claude/Anthropic API requires thinking blocks to be first if
 /// any thinking blocks exist in the message. This function pre-sorts blocks to ensure
@@ -182,12 +182,12 @@ fn sort_thinking_blocks_first(messages: &mut [Message]) {
             if let MessageContent::Array(blocks) = &mut msg.content {
                 // [FIX #709] Triple-stage partition: [Thinking, Text, ToolUse]
                 // This ensures protocol compliance while maintaining logical order.
-                
+
                 let mut thinking_blocks: Vec<ContentBlock> = Vec::new();
                 let mut text_blocks: Vec<ContentBlock> = Vec::new();
                 let mut tool_blocks: Vec<ContentBlock> = Vec::new();
                 let mut other_blocks: Vec<ContentBlock> = Vec::new();
-                
+
                 let original_len = blocks.len();
                 let mut needs_reorder = false;
                 let mut saw_non_thinking = false;
@@ -294,11 +294,11 @@ pub fn transform_claude_request_in(
     // 原封不动发回导致的 "Extra inputs are not permitted" 错误
     let mut cleaned_req = claude_req.clone();
     clean_cache_control_from_messages(&mut cleaned_req.messages);
-    
+
     // [FIX #564] Pre-sort thinking blocks to be first in assistant messages
     // This handles cases where context compression (kilo) incorrectly reorders blocks
     sort_thinking_blocks_first(&mut cleaned_req.messages);
-    
+
     let claude_req = &cleaned_req; // 后续使用清理后的请求
 
     // [NEW] Generate session ID for signature tracking
@@ -312,7 +312,7 @@ pub fn transform_claude_request_in(
         .as_ref()
         .map(|tools| {
             tools.iter().any(|t| {
-                t.is_web_search() 
+                t.is_web_search()
                     || t.name.as_deref() == Some("google_search")
                     || t.type_.as_deref() == Some("web_search_20250305")
             })
@@ -349,7 +349,7 @@ pub fn transform_claude_request_in(
     } else {
         crate::proxy::common::model_mapping::map_claude_model_to_gemini(&claude_req.model)
     };
-    
+
     // 将 Claude 工具转为 Value 数组以便探测联网
     let tools_val: Option<Vec<Value>> = claude_req.tools.as_ref().map(|list| {
         list.iter().map(|t| serde_json::to_value(t).unwrap_or(json!({}))).collect()
@@ -358,13 +358,13 @@ pub fn transform_claude_request_in(
 
     // Resolve grounding config
     let config = crate::proxy::mappers::common_utils::resolve_request_config(&claude_req.model, &mapped_model, &tools_val);
-    
+
     // [CRITICAL FIX] Disable dummy thought injection for Vertex AI
     // [CRITICAL FIX] Disable dummy thought injection for Vertex AI
     // Vertex AI rejects thinking blocks without valid signatures
     // Even if thinking is enabled, we should NOT inject dummy blocks for historical messages
     let allow_dummy_thought = false;
-    
+
     // Check if thinking is enabled in the request
     let mut is_thinking_enabled = claude_req
         .thinking
@@ -379,9 +379,9 @@ pub fn transform_claude_request_in(
     // [NEW FIX] Check if target model supports thinking
     // Only models with "-thinking" suffix or Claude models support thinking
     // Regular Gemini models (gemini-2.5-flash, gemini-2.5-pro) do NOT support thinking
-    let target_model_supports_thinking = mapped_model.contains("-thinking") 
+    let target_model_supports_thinking = mapped_model.contains("-thinking")
         || mapped_model.starts_with("claude-");
-    
+
     if is_thinking_enabled && !target_model_supports_thinking {
         tracing::warn!(
             "[Thinking-Mode] Target model '{}' does not support thinking. Force disabling thinking mode.",
@@ -404,7 +404,7 @@ pub fn transform_claude_request_in(
     // disable thinking to prevent Gemini 3 Pro rejection
     if is_thinking_enabled {
         let global_sig = get_thought_signature();
-        
+
         // Check if there are any thinking blocks in message history
         let has_thinking_history = claude_req.messages.iter().any(|m| {
             if m.role == "assistant" {
@@ -414,7 +414,7 @@ pub fn transform_claude_request_in(
             }
             false
         });
-        
+
         // Check if there are function calls in the request
         let has_function_calls = claude_req.messages.iter().any(|m| {
             if let MessageContent::Array(blocks) = &m.content {
@@ -430,7 +430,7 @@ pub fn transform_claude_request_in(
         // we use permissive mode and let upstream handle validation.
         // We only enforce strict signature checks when function calls are involved.
         let needs_signature_check = has_function_calls;
-        
+
         if !has_thinking_history && is_thinking_enabled {
              tracing::info!(
                 "[Thinking-Mode] First thinking request detected. Using permissive mode - \
@@ -551,7 +551,7 @@ pub fn transform_claude_request_in(
 }
 
 /// 检查是否因为历史消息原因需要禁用 Thinking
-/// 
+///
 /// 场景: 如果最后一条 Assistant 消息处于 Tool Use 流程中，但没有 Thinking 块，
 /// 说明这是一个由非 Thinking 模型发起的流程。此时强制开启 Thinking 会导致:
 /// "final assistant message must start with a thinking block" 错误。
@@ -563,7 +563,7 @@ fn should_disable_thinking_due_to_history(messages: &[Message]) -> bool {
             if let MessageContent::Array(blocks) = &msg.content {
                 let has_tool_use = blocks.iter().any(|b| matches!(b, ContentBlock::ToolUse { .. }));
                 let has_thinking = blocks.iter().any(|b| matches!(b, ContentBlock::Thinking { .. }));
-                
+
                 // 如果有工具调用，但没有 Thinking 块 -> 不兼容
                 if has_tool_use && !has_thinking {
                     tracing::info!("[Thinking-Mode] Detected ToolUse without Thinking in history. Requesting disable.");
@@ -649,7 +649,7 @@ fn build_system_instruction(system: &Option<SystemPrompt>, _model_name: &str, ha
     You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.\n\
     **Absolute paths only**\n\
     **Proactiveness**";
-    
+
     // [HYBRID] 检查用户是否已提供 Antigravity 身份
     let mut user_has_antigravity = false;
     if let Some(sys) = system {
@@ -847,7 +847,7 @@ fn build_contents(
                                     // [NEW] If is_retry is true, force incompatibility to strip historical signatures
                                     // which likely caused the previous 400 error.
                                     let compatible = !is_retry && is_model_compatible(&family, mapped_model);
-                                    
+
                                     if !compatible {
                                         tracing::warn!(
                                             "[Thinking-Signature] {} signature (Family: {}, Target: {}). Downgrading to text.",
@@ -1516,17 +1516,17 @@ fn build_generation_config(
     // Maps Claude's output_config.effort to Gemini's effortLevel
     if let Some(output_config) = &claude_req.output_config {
         if let Some(effort) = &output_config.effort {
-            config["effortLevel"] = json!(match effort.to_lowercase().as_str() {
-                "high" => "HIGH",
-                "medium" => "MEDIUM",
-                "low" => "LOW",
-                _ => "HIGH" // Default to HIGH for unknown values
-            });
-            tracing::debug!(
-                "[Generation-Config] Effort level set: {} -> {}",
-                effort,
-                config["effortLevel"]
-            );
+            // config["effortLevel"] = json!(match effort.to_lowercase().as_str() {
+            //     "high" => "HIGH",
+            //     "medium" => "MEDIUM",
+            //     "low" => "LOW",
+            //     _ => "HIGH" // Default to HIGH for unknown values
+            // });
+            // tracing::debug!(
+            //     "[Generation-Config] Effort level set: {} -> {}",
+            //     effort,
+            //     config["effortLevel"]
+            // );
         }
     }
 
@@ -1576,29 +1576,29 @@ fn is_model_compatible(cached: &str, target: &str) -> bool {
     // Simple heuristic: check if they share the same base prefix
     // e.g. "gemini-1.5-pro" vs "gemini-1.5-pro-002" -> Compatible
     // "gemini-1.5-pro" vs "gemini-2.0-flash" -> Incompatible
-    
+
     // Normalize
     let c = cached.to_lowercase();
     let t = target.to_lowercase();
-    
+
     if c == t { return true; }
-    
+
     // Check specific families
     // Vertex AI signatures are very strict. 1.5-pro vs 1.5-flash are NOT cross-compatible.
     // 2.0-flash vs 2.0-pro are also NOT cross-compatible.
-    
+
     // Exact model string match (already handled by c == t)
-    
+
     // Grouped family match (Claude models are more permissive)
     if c.contains("claude-3-5") && t.contains("claude-3-5") { return true; }
     if c.contains("claude-3-7") && t.contains("claude-3-7") { return true; }
-    
+
     // Gemini models: strict family match required for signatures
     if c.contains("gemini-1.5-pro") && t.contains("gemini-1.5-pro") { return true; }
     if c.contains("gemini-1.5-flash") && t.contains("gemini-1.5-flash") { return true; }
     if c.contains("gemini-2.0-flash") && t.contains("gemini-2.0-flash") { return true; }
     if c.contains("gemini-2.0-pro") && t.contains("gemini-2.0-pro") { return true; }
-    
+
     // Fallback: strict match required
     false
 }
@@ -1635,7 +1635,7 @@ mod tests {
                 assert!(cache_control.is_none(), "Deserialization should result in None for null cache_control");
             }
         }
-        
+
         // Now test serialization
         let serialized = serde_json::to_value(&req).unwrap();
         println!("Serialized: {}", serialized);
@@ -1835,7 +1835,7 @@ mod tests {
         // 验证请求成功转换
         let body = result.unwrap();
         assert_eq!(body["project"], "test-project");
-        
+
         // 注意: cache_control 的清理发生在内部,我们无法直接从 JSON 输出验证
         // 但如果没有清理,后续发送到 Anthropic API 时会报错
         // 这个测试主要确保清理逻辑不会导致转换失败
@@ -1863,8 +1863,8 @@ mod tests {
                             id: "tool_1".to_string(),
                             name: "list_files".to_string(),
                             input: json!({}),
-                            cache_control: None, 
-                            signature: None 
+                            cache_control: None,
+                            signature: None
                         },
                     ]),
                 },
@@ -1915,7 +1915,7 @@ mod tests {
         if let Some(gen_config) = request.get("generationConfig") {
              assert!(gen_config.get("thinkingConfig").is_none(), "thinkingConfig should be removed due to downgrade");
         }
-        
+
         // 验证: 依然能生成有效的请求体
         assert!(request.get("contents").is_some());
     }
@@ -1966,7 +1966,7 @@ mod tests {
             .unwrap();
 
         let parts = last_model_msg["parts"].as_array().unwrap();
-        
+
         // 验证没有补全 thinking 块
         assert_eq!(parts.len(), 1, "Should only have the original text block");
         assert_eq!(parts[0]["text"], "Response");
@@ -2011,7 +2011,7 @@ mod tests {
         let body = result.unwrap();
         let contents = body["request"]["contents"].as_array().unwrap();
         let parts = contents[0]["parts"].as_array().unwrap();
-        
+
         // 验证 thinking 块
         assert_eq!(parts[0]["text"], "...", "Empty thinking should be filled with ...");
         assert!(parts[0].get("thought").is_none(), "Empty thinking should be downgraded to text");
@@ -2069,7 +2069,7 @@ mod tests {
                 content: MessageContent::Array(vec![
                     // Wrong order: Text before Thinking (simulates kilo compression)
                     ContentBlock::Text { text: "Some regular text".to_string() },
-                    ContentBlock::Thinking { 
+                    ContentBlock::Thinking {
                         thinking: "My thinking process".to_string(),
                         signature: Some("valid_signature_1234567890_abcdefghij_klmnopqrstuvwxyz_test".to_string()),
                         cache_control: None,
@@ -2078,17 +2078,17 @@ mod tests {
                 ]),
             }
         ];
-        
+
         // Apply the fix
         sort_thinking_blocks_first(&mut messages);
-        
+
         // Verify thinking is now first
         if let MessageContent::Array(blocks) = &messages[0].content {
             assert_eq!(blocks.len(), 3, "Should still have 3 blocks");
             assert!(matches!(blocks[0], ContentBlock::Thinking { .. }), "Thinking should be first");
             assert!(matches!(blocks[1], ContentBlock::Text { .. }), "Text should be second");
             assert!(matches!(blocks[2], ContentBlock::Text { .. }), "Text should be third");
-            
+
             // Verify content preserved
             if let ContentBlock::Thinking { thinking, .. } = &blocks[0] {
                 assert_eq!(thinking, "My thinking process");
@@ -2105,7 +2105,7 @@ mod tests {
             Message {
                 role: "assistant".to_string(),
                 content: MessageContent::Array(vec![
-                    ContentBlock::Thinking { 
+                    ContentBlock::Thinking {
                         thinking: "My thinking".to_string(),
                         signature: Some("sig123".to_string()),
                         cache_control: None,
@@ -2114,10 +2114,10 @@ mod tests {
                 ]),
             }
         ];
-        
+
         // Apply the fix (should be no-op)
         sort_thinking_blocks_first(&mut messages);
-        
+
         // Verify order unchanged
         if let MessageContent::Array(blocks) = &messages[0].content {
             assert!(matches!(blocks[0], ContentBlock::Thinking { .. }), "Thinking should still be first");
@@ -2125,4 +2125,3 @@ mod tests {
         }
     }
 }
-
