@@ -224,15 +224,6 @@ fn filter_invalid_thinking_blocks(messages: &mut Vec<Message>) {
                 }
             }
             
-            // [FIX] Sort blocks to ensure thinking/redacted_thinking blocks are first
-            // This fixes "assistant message must start with thinking block" error
-            // when thinking blocks are converted to text blocks
-            new_blocks.sort_by(|a, b| {
-                let a_is_thinking = matches!(a, ContentBlock::Thinking { .. } | ContentBlock::RedactedThinking { .. });
-                let b_is_thinking = matches!(b, ContentBlock::Thinking { .. } | ContentBlock::RedactedThinking { .. });
-                b_is_thinking.cmp(&a_is_thinking) // thinking blocks come first
-            });
-            
             *blocks = new_blocks;
             let filtered_count = original_len - blocks.len();
             total_filtered += filtered_count;
