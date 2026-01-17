@@ -108,6 +108,7 @@ pub async fn handle_warmup(
         match crate::proxy::mappers::claude::transform_claude_request_in(
             &claude_request,
             &project_id,
+            false,
         ) {
             Ok(transformed) => transformed,
             Err(e) => {
@@ -152,7 +153,7 @@ pub async fn handle_warmup(
             })
         };
 
-        wrap_request(&base_request, &project_id, &req.model)
+        wrap_request(&base_request, &project_id, &req.model, Some(&session_id))
     };
 
     // ===== 步骤 3: 调用 UpstreamClient =====

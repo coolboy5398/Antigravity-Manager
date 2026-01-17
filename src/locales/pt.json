@@ -3,6 +3,7 @@
         "loading": "Carregando...",
         "load_more": "Carregar mais",
         "add": "Adicionar",
+        "copy": "Copiar",
         "action": "Ação",
         "save": "Salvar",
         "saved": "Salvo com sucesso",
@@ -37,6 +38,7 @@
         "dashboard": "Painel",
         "accounts": "Contas",
         "proxy": "Proxy da API",
+        "call_records": "Registros de Tráfego",
         "settings": "Configurações",
         "theme_to_dark": "Alternar para Modo Escuro",
         "theme_to_light": "Alternar para Modo Claro",
@@ -271,6 +273,10 @@
             "example": "Exemplo: Em {{percentage}}%, uma conta com {{total}} de cota será desabilitada quando restante ≤ {{threshold}}",
             "auto_restore_info": "A conta será automaticamente reabilitada quando a cota for redefinida"
         },
+        "pinned_quota_models": {
+            "title": "Modelos de Cota Fixados",
+            "desc": "Selecione quais cotas de modelo exibir na lista de contas. Modelos não selecionados são mostrados apenas no pop-up de detalhes"
+        },
         "proxy": {
             "title": "Configurações do Proxy"
         },
@@ -431,10 +437,10 @@
                     "advanced_tooltip": "Substituições de correspondência exata opcionais. Se uma string de modelo recebida corresponder a uma chave de regra, será substituída pelo ID de modelo z.ai mapeado.",
                     "from_label": "Modelo recebido",
                     "to_label": "Modelo z.ai",
-                    "from_placeholder": "ex: claude-opus-4-5-thinking",
-                    "to_placeholder": "ex: glm-4.7",
                     "add_rule": "Adicionar",
-                    "empty": "Nenhuma regra de substituição configurada."
+                    "empty": "Nenhuma regra de substituição configurada.",
+                    "from_placeholder": "Do (ex: claude-3-opus)",
+                    "to_placeholder": "Para (ex: glm-4)"
                 },
                 "modes": {
                     "off": "Desligado",
@@ -459,7 +465,7 @@
             },
             "request_timeout": "Tempo Limite da Solicitação",
             "request_timeout_tooltip": "Tempo máximo (segundos) que o proxy aguarda por uma resposta upstream, incluindo streaming. Aumente para gerações longas; reinício necessário para aplicar.",
-            "request_timeout_hint": "Padrão 120s, intervalo 30-3600s. Reinicie o serviço para aplicar alterações.",
+            "request_timeout_hint": "Padrão 120s, intervalo 30-7200s. Reinicie o serviço para aplicar alterações.",
             "enable_logging": "Habilitar Registro de Solicitações",
             "enable_logging_hint": "Registrar histórico para depuração (Custo de desempenho menor)",
             "upstream_proxy": {
@@ -611,20 +617,52 @@
             "default_suffix": " (Padrão)",
             "original_id": "ID Original",
             "route_to": "Rotear Para",
-            "select_target_model": "Selecionar Modelo de Destino"
+            "select_target_model": "Selecionar Modelo de Destino",
+            "original_placeholder": "Original (ex: gpt-4 ou gpt-4*)"
         },
         "multi_protocol": {
             "title": "Suporte Multi-Protocolo",
-            "subtitle": "Suporte de Protocolo",
-            "description": "Serviço proxy suporta formatos de API OpenAI e Anthropic para atender diferentes requisitos de ferramentas",
-            "openai_label": "Protocolo OpenAI",
-            "anthropic_label": "Protocolo Anthropic",
+            "subtitle": "Sincronize API e chaves com suas ferramentas",
+            "description": "O proxy suporta protocolos OpenAI, Anthropic e Gemini para fácil integração.",
+            "openai_label": "OpenAI",
+            "anthropic_label": "Anthropic",
             "openai_tools": "Cherry Studio, NextChat",
             "anthropic_tools": "Claude Code CLI",
-            "gemini_label": "Protocolo Gemini",
+            "gemini_label": "Gemini",
             "gemini_tools": "Google AI SDK, LangChain",
             "quick_integration": "Integração Rápida",
-            "click_tip": "👆 Clique em qualquer modelo à esquerda para atualizar este código"
+            "click_tip": "👆 Clique no modelo para atualizar o código",
+            "copy_base": "Copiar Base"
+        },
+        "cli_sync": {
+            "title": "Sincronização de CLI",
+            "subtitle": "Sincronize a URL e chave da API com suas ferramentas de CLI de IA",
+            "card_title": "Config {{name}}",
+            "status": {
+                "not_installed": "Não instalado",
+                "installed": "v{{version}}",
+                "synced": "Apontado para este app",
+                "not_synced": "Não sincronizado",
+                "detecting": "Detectando...",
+                "current_base_url": "URL Base Atual"
+            },
+            "btn_sync": "Sincronizar Agora",
+            "btn_view": "Ver Config",
+            "btn_restore": "Restaurar Padrão",
+            "btn_restore_backup": "Restaurar Backup",
+            "restore_backup_confirm": "Configuração de backup encontrada. Tem certeza de que deseja restaurá-la?",
+            "sync_confirm_title": "Confirmação de Sincronização",
+            "sync_confirm_message": "Pronto para sincronizar a configuração do {{name}}. ⚠️ Aviso: Isso substituirá seus arquivos de configuração local existentes (como tokens de login, chaves de API). Tem certeza de que deseja continuar?",
+            "restore_confirm": "Tem certeza que deseja restaurar a config de {{name}} para o padrão?",
+            "modal": {
+                "view_title": "Conteúdo do arquivo {{name}}",
+                "copy_success": "Copiado para a área de transferência"
+            },
+            "toast": {
+                "config_missing": "Gere uma chave de API e inicie o serviço primeiro",
+                "sync_success": "Sucesso! {{name}} está pronto.",
+                "sync_error": "Erro ao sincronizar {{name}}: {{error}}"
+            }
         },
         "supported_models": {
             "title": "Modelos Suportados e Integração",

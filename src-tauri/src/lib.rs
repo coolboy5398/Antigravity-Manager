@@ -40,6 +40,29 @@ pub fn run() {
         .manage(commands::proxy::ProxyServiceState::new())
         .setup(|app| {
             info!("Setup starting...");
+
+            // Linux: Workaround for transparent window crash/freeze
+            // The transparent window feature is unstable on Linux with WebKitGTK
+            // We disable the visual alpha channel to prevent softbuffer-related crashes
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    // Access GTK window and disable transparency at the GTK level
+                    if let Ok(gtk_window) = window.gtk_window() {
+                        use gtk::prelude::WidgetExt;
+                        // Remove the visual's alpha channel to disable transparency
+                        if let Some(screen) = gtk_window.screen() {
+                            // Use non-composited visual if available
+                            if let Some(visual) = screen.system_visual() {
+                                gtk_window.set_visual(Some(&visual));
+                            }
+                        }
+                        info!("Linux: Applied transparent window workaround");
+                    }
+                }
+            }
+
             modules::tray::create_tray(app.handle())?;
             info!("Tray created");
             
@@ -178,6 +201,10 @@ pub fn run() {
             // HTTP API 设置命令
             commands::get_http_api_settings,
             commands::save_http_api_settings,
+            proxy::cli_sync::get_cli_sync_status,
+            proxy::cli_sync::execute_cli_sync,
+            proxy::cli_sync::execute_cli_restore,
+            proxy::cli_sync::get_cli_config_content,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

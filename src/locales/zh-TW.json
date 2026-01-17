@@ -3,6 +3,7 @@
         "loading": "載入中...",
         "load_more": "載入更多",
         "add": "新增",
+        "copy": "複製",
         "action": "操作",
         "save": "儲存",
         "saved": "儲存成功",
@@ -37,6 +38,7 @@
         "dashboard": "儀表板",
         "accounts": "帳號管理",
         "proxy": "API 反向代理",
+        "call_records": "流量日誌",
         "settings": "設定",
         "theme_to_dark": "切換到深色模式",
         "theme_to_light": "切換到淺色模式",
@@ -271,6 +273,10 @@
             "example": "示例：設定 {{percentage}}% 時，{{total}} 次配額的帳號剩餘 ≤ {{threshold}} 次時將被自動停用",
             "auto_restore_info": "配額重置後將自動重新啟用帳號"
         },
+        "pinned_quota_models": {
+            "title": "配額關注列表",
+            "desc": "選擇要在帳號列表外層顯示的模型配額，未選中的模型只在詳情彈窗中顯示"
+        },
         "proxy": {
             "title": "代理設定"
         },
@@ -431,10 +437,10 @@
                     "advanced_tooltip": "可選的精確比對覆蓋規則：如果 incoming model 字串與規則鍵完全一致，則替換為對應的 z.ai 模型 ID。",
                     "from_label": "incoming model",
                     "to_label": "z.ai 模型",
-                    "from_placeholder": "例如：claude-opus-4-5-thinking",
-                    "to_placeholder": "例如：glm-4.7",
                     "add_rule": "新增",
-                    "empty": "未配置任何覆蓋規則。"
+                    "empty": "尚未配置自定義替換規則。",
+                    "from_placeholder": "源模型 (如 claude-3-opus)",
+                    "to_placeholder": "映射至 (如 glm-4)"
                 },
                 "modes": {
                     "off": "關閉",
@@ -459,7 +465,7 @@
             },
             "request_timeout": "請求逾時",
             "request_timeout_tooltip": "代理等待上游響應的最大時間（秒），包含流式輸出。長文字/長推理可適當調大；修改後需重啟生效。",
-            "request_timeout_hint": "預設 120 秒，範圍 30-3600 秒。修改後需重啟服務生效。",
+            "request_timeout_hint": "預設 120 秒，範圍 30-7200 秒。修改後需重啟服務生效。",
             "enable_logging": "啟用請求紀錄",
             "enable_logging_hint": "記錄歷史紀錄以便除錯 (微小效能損耗)",
             "upstream_proxy": {
@@ -608,15 +614,16 @@
             "no_custom_mapping": "暫無自定義精確對映",
             "gemini3_only_warning": "⚠️ 僅支援 Gemini 3 系列",
             "default_suffix": "（預設）",
-            "select_target_model": "選擇目標模型"
+            "select_target_model": "選擇目標模型",
+            "original_placeholder": "原始名 (如 gpt-4 或 gpt-4*)"
         },
         "examples": {
             "title": "使用示例"
         },
         "multi_protocol": {
             "title": "多協定支援 (Multi-Protocol Support)",
-            "subtitle": "協定支援",
-            "description": "反向代理服務支援 OpenAI 和 Anthropic 兩種 API 格式，滿足不同工具需求",
+            "subtitle": "快速同步 API 地址與金鑰到本地 AI 工具",
+            "description": "反代服務支援 OpenAI、Anthropic 和 Gemini 協定，滿足不同工具的整合需求",
             "openai_label": "OpenAI 協定",
             "anthropic_label": "Anthropic 協定",
             "openai_tools": "Cherry Studio, NextChat",
@@ -624,7 +631,38 @@
             "gemini_label": "Gemini 協定",
             "gemini_tools": "Google AI SDK, LangChain",
             "quick_integration": "快速整合 (Quick Integration)",
-            "click_tip": "👆 點選左側任意模型以更新程式碼"
+            "click_tip": "👆 點擊模型以更新程式碼範例",
+            "copy_base": "複製 Base"
+        },
+        "cli_sync": {
+            "title": "CLI 配置一鍵同步",
+            "subtitle": "快速將當前 API 服務地址與 API 密鑰同步到本地 AI CLI 工具中",
+            "card_title": "{{name}} 配置",
+            "status": {
+                "not_installed": "未檢測到安裝",
+                "installed": "v{{version}}",
+                "synced": "已指向本項目",
+                "not_synced": "未同步",
+                "detecting": "檢測中...",
+                "current_base_url": "當前介面地址 (Base URL)"
+            },
+            "btn_sync": "立即同步配置",
+            "btn_view": "檢視當前配置",
+            "btn_restore": "恢復預設配置",
+            "btn_restore_backup": "還原原有配置",
+            "restore_backup_confirm": "檢測到舊的配置檔案備份，確定要還原嗎？",
+            "sync_confirm_title": "同步確認",
+            "sync_confirm_message": "即將為您同步 {{name}} 的配置。⚠️ 注意：此操作將覆蓋您本地已有的配置檔案（如登入狀態、API Key 等）。確定要繼續嗎？",
+            "restore_confirm": "確定要將 {{name}} 的配置恢復為官方預設 URL 嗎？",
+            "modal": {
+                "view_title": "{{name}} 配置文件內容",
+                "copy_success": "配置內容已複製到剪貼簿"
+            },
+            "toast": {
+                "config_missing": "請先生成 API Key 並啟動服務",
+                "sync_success": "同步成功！{{name}} 已準備就緒。",
+                "sync_error": "同步 {{name}} 失敗: {{error}}"
+            }
         },
         "supported_models": {
             "title": "支援模型與整合 (Supported Models & Integration)",

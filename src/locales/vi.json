@@ -3,6 +3,7 @@
         "loading": "Đang tải...",
         "load_more": "Tải thêm",
         "add": "Thêm mới",
+        "copy": "Sao chép",
         "action": "Hành động",
         "save": "Lưu",
         "saved": "Đã lưu",
@@ -37,6 +38,7 @@
         "dashboard": "Tổng quan",
         "accounts": "Tài khoản",
         "proxy": "API Proxy",
+        "call_records": "Nhật ký lưu lượng",
         "settings": "Cài đặt",
         "theme_to_dark": "Chuyển sang Chế độ Tối",
         "theme_to_light": "Chuyển sang Chế độ Sáng",
@@ -269,6 +271,10 @@
             "example": "Ví dụ: Tại {{percentage}}%, tài khoản có tổng hạn mức {{total}} sẽ bị vô hiệu hóa khi còn lại ≤ {{threshold}}",
             "auto_restore_info": "Tài khoản sẽ tự động được bật lại khi hạn mức hồi phục"
         },
+        "pinned_quota_models": {
+            "title": "Model Hạn mức Đã ghim",
+            "desc": "Chọn hạn mức model nào hiển thị trong danh sách tài khoản. Model không được chọn chỉ hiển thị trong popup chi tiết"
+        },
         "proxy": {
             "title": "Cài đặt Proxy"
         },
@@ -429,10 +435,10 @@
                     "advanced_tooltip": "Ghi đè khớp chính xác tùy chọn. Nếu tên model đầu vào khớp chính xác với khóa quy tắc, nó sẽ được thay thế bằng model z.ai được ánh xạ.",
                     "from_label": "Model đầu vào",
                     "to_label": "Model z.ai",
-                    "from_placeholder": "ví dụ: claude-opus-4-5-thinking",
-                    "to_placeholder": "ví dụ: glm-4.7",
                     "add_rule": "Thêm",
-                    "empty": "Chưa có quy tắc ghi đè nào."
+                    "empty": "Chưa có quy tắc ghi đè nào.",
+                    "from_placeholder": "Ví dụ: claude-3-opus",
+                    "to_placeholder": "Ví dụ: glm-4"
                 },
                 "modes": {
                     "off": "Tắt",
@@ -457,7 +463,7 @@
             },
             "request_timeout": "Timeout Request",
             "request_timeout_tooltip": "Thời gian tối đa (giây) proxy chờ phản hồi từ upstream, bao gồm cả streaming. Tăng lên nếu tạo nội dung dài; cần khởi động lại để áp dụng.",
-            "request_timeout_hint": "Mặc định 120s, khoảng 30-3600s. Khởi động lại dịch vụ để áp dụng.",
+            "request_timeout_hint": "Mặc định 120s, khoảng 30-7200s. Khởi động lại dịch vụ để áp dụng.",
             "enable_logging": "Bật Ghi Log Request",
             "enable_logging_hint": "Ghi lại lịch sử để debug (Ảnh hưởng nhẹ hiệu năng)",
             "upstream_proxy": {
@@ -608,20 +614,52 @@
             "default_suffix": " (Mặc định)",
             "original_id": "ID Gốc",
             "route_to": "Điều hướng tới",
-            "select_target_model": "Chọn Model Đích"
+            "select_target_model": "Chọn Model Đích",
+            "original_placeholder": "Gốc (ví dụ: gpt-4 hoặc gpt-4*)"
         },
         "multi_protocol": {
-            "title": "Hỗ trợ Đa Giao thức",
-            "subtitle": "Hỗ trợ Giao thức",
-            "description": "Dịch vụ Proxy hỗ trợ cả định dạng API OpenAI và Anthropic để đáp ứng các nhu cầu công cụ khác nhau",
-            "openai_label": "Giao thức OpenAI",
-            "anthropic_label": "Giao thức Anthropic",
+            "title": "Hỗ trợ đa giao thức",
+            "subtitle": "Đồng bộ API và Key với công cụ của bạn",
+            "description": "Proxy hỗ trợ các giao thức OpenAI, Anthropic và Gemini để dễ dàng tích hợp.",
+            "openai_label": "OpenAI",
+            "anthropic_label": "Anthropic",
             "openai_tools": "Cherry Studio, NextChat",
             "anthropic_tools": "Claude Code CLI",
-            "gemini_label": "Giao thức Gemini",
+            "gemini_label": "Gemini",
             "gemini_tools": "Google AI SDK, LangChain",
-            "quick_integration": "Tích hợp Nhanh",
-            "click_tip": "👆 Click vào bất kỳ model nào bên trái để cập nhật mã mẫu này."
+            "quick_integration": "Tích hợp nhanh",
+            "click_tip": "👆 Click vào model để cập nhật mã mẫu",
+            "copy_base": "Sao chép Base"
+        },
+        "cli_sync": {
+            "title": "Đồng bộ CLI",
+            "subtitle": "Đồng bộ URL API và Key hiện tại với các công cụ AI CLI của bạn",
+            "card_title": "Cấu hình {{name}}",
+            "status": {
+                "not_installed": "Chưa cài đặt",
+                "installed": "v{{version}}",
+                "synced": "Đã trỏ đến app này",
+                "not_synced": "Chưa đồng bộ",
+                "detecting": "Đang kiểm tra...",
+                "current_base_url": "Base URL hiện tại"
+            },
+            "btn_sync": "Đồng bộ ngay",
+            "btn_view": "Xem cấu hình",
+            "btn_restore": "Khôi phục",
+            "btn_restore_backup": "Khôi phục bản sao lưu",
+            "restore_backup_confirm": "Tìm thấy cấu hình sao lưu. Bạn có chắc chắn muốn khôi phục không?",
+            "sync_confirm_title": "Xác nhận đồng bộ",
+            "sync_confirm_message": "Đã sẵn sàng đồng bộ cấu hình {{name}}. ⚠️ Cảnh báo: Thao tác này sẽ ghi đè các tệp cấu hình cục bộ hiện có của bạn (ví dụ: token đăng nhập, API Key). Bạn có chắc chắn muốn tiếp tục không?",
+            "restore_confirm": "Bạn có chắc muốn khôi phục cấu hình {{name}} về mặc định không?",
+            "modal": {
+                "view_title": "Nội dung cấu hình {{name}}",
+                "copy_success": "Đã sao chép vào bộ nhớ tạm"
+            },
+            "toast": {
+                "config_missing": "Vui lòng tạo API Key và khởi chạy dịch vụ trước",
+                "sync_success": "Thành công! {{name}} đã sẵn sàng.",
+                "sync_error": "Lỗi đồng bộ {{name}}: {{error}}"
+            }
         },
         "supported_models": {
             "title": "Model Hỗ trợ & Tích hợp",
