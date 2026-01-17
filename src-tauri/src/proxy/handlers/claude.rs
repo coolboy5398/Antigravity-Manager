@@ -14,7 +14,8 @@ use tracing::{debug, error, info};
 
 use crate::proxy::mappers::claude::{
     transform_claude_request_in, transform_response, create_claude_sse_stream, ClaudeRequest,
-    close_tool_loop_for_thinking, clean_cache_control_from_messages,
+    filter_invalid_thinking_blocks_with_family, close_tool_loop_for_thinking,
+    clean_cache_control_from_messages,
 };
 use crate::proxy::server::AppState;
 use axum::http::HeaderMap;
@@ -22,12 +23,6 @@ use std::sync::atomic::Ordering;
 
 const MAX_RETRY_ATTEMPTS: usize = 3;
 const MIN_SIGNATURE_LENGTH: usize = 10;  // 最小有效签名长度
-
-// ===== Context Window Protection Constants =====
-// These thresholds help prevent "Prompt is too long" errors
-const MAX_INPUT_TOKENS: usize = 100_000;          // Max input tokens (leave room for output)
-const CHARS_PER_TOKEN: usize = 4;                 // Approximate chars per token
-const MIN_MESSAGES_TO_KEEP: usize = 4;            // Always keep at least N recent messages
 
 // ===== Model Constants for Background Tasks =====
 // These can be adjusted for performance/cost optimization
@@ -38,260 +33,6 @@ const BACKGROUND_MODEL_STANDARD: &str = "gemini-2.5-flash";   // For complex bac
 // Jitter was causing connection instability, reverted to fixed delays
 // const JITTER_FACTOR: f64 = 0.2;
 
-// ===== Thinking 块处理辅助函数 =====
-
-use crate::proxy::mappers::claude::models::{ContentBlock, Message, MessageContent, SystemPrompt};
-
-// ===== Context Window Protection Functions =====
-
-/// Estimate the number of tokens in a Claude request
-/// Uses a simple heuristic: ~4 characters per token
-fn estimate_request_tokens(request: &ClaudeRequest) -> usize {
-    let mut total_chars = 0;
-    
-    // 1. System prompt
-    if let Some(system) = &request.system {
-        total_chars += match system {
-            SystemPrompt::String(s) => s.len(),
-            SystemPrompt::Array(blocks) => blocks.iter().map(|b| b.text.len()).sum(),
-        };
-    }
-    
-    // 2. Messages
-    for msg in &request.messages {
-        match &msg.content {
-            MessageContent::String(s) => total_chars += s.len(),
-            MessageContent::Array(blocks) => {
-                for block in blocks {
-                    total_chars += match block {
-                        ContentBlock::Text { text } => text.len(),
-                        ContentBlock::Thinking { thinking, .. } => thinking.len(),
-                        ContentBlock::ToolUse { input, .. } => input.to_string().len(),
-                        ContentBlock::ToolResult { content, .. } => content.to_string().len(),
-                        ContentBlock::Image { .. } => 1000, // Estimate for image tokens
-                        ContentBlock::Document { .. } => 5000, // Estimate for document
-                        _ => 100, // Default estimate for other blocks
-                    };
-                }
-            }
-        }
-    }
-    
-    // 3. Tools definitions
-    if let Some(tools) = &request.tools {
-        for tool in tools {
-            total_chars += serde_json::to_string(tool).map(|s| s.len()).unwrap_or(500);
-        }
-    }
-    
-    total_chars / CHARS_PER_TOKEN
-}
-
-/// Truncate message history if estimated tokens exceed the limit
-/// Returns (was_truncated, removed_count)
-fn truncate_messages_if_needed(messages: &mut Vec<Message>, max_tokens: usize) -> (bool, usize) {
-    // Quick estimate of current token count
-    let estimate_message_tokens = |msgs: &[Message]| -> usize {
-        let chars: usize = msgs.iter().map(|m| {
-            match &m.content {
-                MessageContent::String(s) => s.len(),
-                MessageContent::Array(blocks) => blocks.iter().map(|b| {
-                    match b {
-                        ContentBlock::Text { text } => text.len(),
-                        ContentBlock::Thinking { thinking, .. } => thinking.len(),
-                        ContentBlock::ToolUse { input, .. } => input.to_string().len(),
-                        ContentBlock::ToolResult { content, .. } => content.to_string().len(),
-                        _ => 500,
-                    }
-                }).sum(),
-            }
-        }).sum();
-        chars / CHARS_PER_TOKEN
-    };
-    
-    let current_tokens = estimate_message_tokens(messages);
-    
-    if current_tokens <= max_tokens {
-        return (false, 0);
-    }
-    
-    let original_count = messages.len();
-    
-    // Strategy: Remove oldest messages while keeping at least MIN_MESSAGES_TO_KEEP
-    while messages.len() > MIN_MESSAGES_TO_KEEP && estimate_message_tokens(messages) > max_tokens {
-        // Remove from the front (oldest messages)
-        messages.remove(0);
-    }
-    
-    let removed_count = original_count - messages.len();
-    
-    if removed_count > 0 {
-        tracing::warn!(
-            "[Context-Protection] Truncated {} old messages to fit context window. \
-             Original: {} msgs (~{} tokens), Now: {} msgs",
-            removed_count,
-            original_count,
-            current_tokens,
-            messages.len()
-        );
-        
-        // Insert a marker at the beginning to indicate truncation
-        if !messages.is_empty() && messages[0].role == "user" {
-            if let MessageContent::String(ref mut text) = messages[0].content {
-                *text = format!("[Earlier conversation truncated to fit context window]\n\n{}", text);
-            }
-        }
-    }
-    
-    (removed_count > 0, removed_count)
-}
-
-/// 检查 thinking 块是否有有效签名
-fn has_valid_signature(block: &ContentBlock) -> bool {
-    match block {
-        ContentBlock::Thinking { signature, thinking, .. } => {
-            // 空 thinking + 任意 signature = 有效 (trailing signature case)
-            if thinking.is_empty() && signature.is_some() {
-                return true;
-            }
-            
-            // [FIX #752] 严格验证：签名必须在缓存中
-            if let Some(sig) = signature {
-                // 检查长度
-                if sig.len() < MIN_SIGNATURE_LENGTH {
-                    tracing::debug!("[Signature-Validation] Signature too short: {} chars", sig.len());
-                    return false;
-                }
-                
-                // 检查是否在缓存中
-                let cached_family = crate::proxy::SignatureCache::global().get_signature_family(sig);
-                if cached_family.is_none() {
-                    tracing::warn!(
-                        "[Signature-Validation] Unknown signature origin (len: {}). Rejecting.",
-                        sig.len()
-                    );
-                    return false;
-                }
-                
-                // 签名有效
-                true
-            } else {
-                // 无签名
-                false
-            }
-        }
-        _ => true  // 非 thinking 块默认有效
-    }
-}
-
-/// 清理 thinking 块,只保留必要字段(移除 cache_control 等)
-fn sanitize_thinking_block(block: ContentBlock) -> ContentBlock {
-    match block {
-        ContentBlock::Thinking { thinking, signature, .. } => {
-            // 重建块,移除 cache_control 等额外字段
-            ContentBlock::Thinking {
-                thinking,
-                signature,
-                cache_control: None,
-            }
-        }
-        _ => block
-    }
-}
-
-/// 过滤消息中的无效 thinking 块
-fn filter_invalid_thinking_blocks(messages: &mut Vec<Message>) {
-    let mut total_filtered = 0;
-    
-    for msg in messages.iter_mut() {
-        // 只处理 assistant 消息
-        // [CRITICAL FIX] Handle 'model' role too (Google history usage)
-        if msg.role != "assistant" && msg.role != "model" {
-            continue;
-        }
-        tracing::error!("[DEBUG-FILTER] Inspecting msg with role: {}", msg.role);
-        
-        if let MessageContent::Array(blocks) = &mut msg.content {
-            let original_len = blocks.len();
-            
-            // 过滤并清理
-            let mut new_blocks = Vec::new();
-            for block in blocks.drain(..) {
-                if matches!(block, ContentBlock::Thinking { .. }) {
-                    // [DEBUG] 强制输出日志
-                    if let ContentBlock::Thinking { ref signature, .. } = block {
-                         tracing::error!("[DEBUG-FILTER] Found thinking block. Sig len: {:?}", signature.as_ref().map(|s| s.len()));
-                    }
-
-                    // [CRITICAL FIX] Vertex AI 不认可 skip_thought_signature_validator
-                    // 必须直接删除无效的 thinking 块
-                    if has_valid_signature(&block) {
-                        new_blocks.push(sanitize_thinking_block(block));
-                    } else {
-                        // [IMPROVED] 保留内容转换为 text，而不是直接丢弃
-                        if let ContentBlock::Thinking { thinking, .. } = &block {
-                            if !thinking.is_empty() {
-                                tracing::info!(
-                                    "[Claude-Handler] Converting thinking block with invalid signature to text. \
-                                     Content length: {} chars",
-                                    thinking.len()
-                                );
-                                new_blocks.push(ContentBlock::Text { text: thinking.clone() });
-                            } else {
-                                tracing::debug!("[Claude-Handler] Dropping empty thinking block with invalid signature");
-                            }
-                        }
-                    }
-                } else {
-                    new_blocks.push(block);
-                }
-            }
-            
-            *blocks = new_blocks;
-            let filtered_count = original_len - blocks.len();
-            total_filtered += filtered_count;
-            
-            // 如果过滤后为空,添加一个空文本块以保持消息有效
-            if blocks.is_empty() {
-                blocks.push(ContentBlock::Text { 
-                    text: String::new() 
-                });
-            }
-        }
-    }
-    
-    if total_filtered > 0 {
-        debug!("Filtered {} invalid thinking block(s) from history", total_filtered);
-    }
-}
-
-/// 移除尾部的无签名 thinking 块
-fn remove_trailing_unsigned_thinking(blocks: &mut Vec<ContentBlock>) {
-    if blocks.is_empty() {
-        return;
-    }
-    
-    // 从后向前扫描
-    let mut end_index = blocks.len();
-    for i in (0..blocks.len()).rev() {
-        match &blocks[i] {
-            ContentBlock::Thinking { .. } => {
-                if !has_valid_signature(&blocks[i]) {
-                    end_index = i;
-                } else {
-                    break;  // 遇到有效签名的 thinking 块,停止
-                }
-            }
-            _ => break  // 遇到非 thinking 块,停止
-        }
-    }
-    
-    if end_index < blocks.len() {
-        let removed = blocks.len() - end_index;
-        blocks.truncate(end_index);
-        debug!("Removed {} trailing unsigned thinking block(s)", removed);
-    }
-}
 
 // ===== 统一退避策略模块 =====
 
@@ -514,24 +255,20 @@ pub async fn handle_messages(
     // 必须在序列化之前处理，以确保 z.ai 和 Google Flow 都不受历史消息缓存标记干扰
     clean_cache_control_from_messages(&mut request.messages);
 
-    // [CRITICAL FIX] 过滤并修复 Thinking 块签名
-    filter_invalid_thinking_blocks(&mut request.messages);
-
-    // [NEW] Context Window Protection: Estimate tokens and truncate if needed
-    let estimated_tokens = estimate_request_tokens(&request);
-    if estimated_tokens > MAX_INPUT_TOKENS {
-        tracing::warn!(
-            "[{}] ⚠️ Request exceeds token limit: ~{} tokens (max: {}). Truncating history...",
-            trace_id, estimated_tokens, MAX_INPUT_TOKENS
-        );
-        let (truncated, removed) = truncate_messages_if_needed(&mut request.messages, MAX_INPUT_TOKENS);
-        if truncated {
-            tracing::info!(
-                "[{}] ✂️ Truncated {} messages to fit context window",
-                trace_id, removed
-            );
+    // Get model family for signature validation
+    let target_family = if use_zai {
+        Some("claude")
+    } else {
+        let mapped_model = crate::proxy::common::model_mapping::map_claude_model_to_gemini(&request.model);
+        if mapped_model.contains("gemini") {
+            Some("gemini")
+        } else {
+            Some("claude")
         }
-    }
+    };
+
+    // [CRITICAL FIX] 过滤并修复 Thinking 块签名 (Enhanced with family check)
+    filter_invalid_thinking_blocks_with_family(&mut request.messages, target_family);
 
     // [New] Recover from broken tool loops (where signatures were stripped)
     // This prevents "Assistant message must start with thinking" errors by closing the loop with synthetic messages
@@ -770,26 +507,8 @@ pub async fn handle_messages(
                     ));
                 }
             }
-        } else {
-            // 真实用户请求,保持原映射
-            debug!(
-                "[{}][USER] 用户交互请求,保持映射: {}",
-                trace_id,
-                mapped_model
-            );
-            
-            // 对真实请求应用额外的清理:移除尾部无签名的 thinking 块
-            // 对真实请求应用额外的清理:移除尾部无签名的 thinking 块
-            for msg in request_with_mapped.messages.iter_mut() {
-                if msg.role == "assistant" || msg.role == "model" {
-                    if let crate::proxy::mappers::claude::models::MessageContent::Array(blocks) = &mut msg.content {
-                        remove_trailing_unsigned_thinking(blocks);
-                    }
-                }
-            }
         }
 
-        
         request_with_mapped.model = mapped_model;
 
         // 生成 Trace ID (简单用时间戳后缀)
