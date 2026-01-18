@@ -15,7 +15,7 @@ use tracing::{debug, error, info};
 use crate::proxy::mappers::claude::{
     transform_claude_request_in, transform_response, create_claude_sse_stream, ClaudeRequest,
     filter_invalid_thinking_blocks_with_family, close_tool_loop_for_thinking,
-    clean_cache_control_from_messages,
+    clean_cache_control_from_messages, merge_consecutive_messages,
 };
 use crate::proxy::server::AppState;
 use axum::http::HeaderMap;
@@ -254,6 +254,10 @@ pub async fn handle_messages(
     // [CRITICAL FIX] 预先清理所有消息中的 cache_control 字段 (Issue #744)
     // 必须在序列化之前处理，以确保 z.ai 和 Google Flow 都不受历史消息缓存标记干扰
     clean_cache_control_from_messages(&mut request.messages);
+
+    // [FIX #813] 合并连续的同角色消息 (Consecutive User Messages)
+    // 这对于 z.ai (Anthropic 直接转发) 路径至关重要，因为原始结构必须符合协议
+    merge_consecutive_messages(&mut request.messages);
 
     // Get model family for signature validation
     let target_family = if use_zai {

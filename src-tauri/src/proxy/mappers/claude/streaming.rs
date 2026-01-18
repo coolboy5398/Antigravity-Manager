@@ -6,7 +6,7 @@ use super::utils::to_claude_usage;
 // use crate::proxy::mappers::signature_store::store_thought_signature; // Deprecated
 use crate::proxy::SignatureCache;
 use bytes::Bytes;
-use serde_json::json;
+use serde_json::{json, Value};
 
 /// [FIX #547] Helper function to coerce string values to boolean
 /// Gemini sometimes sends boolean parameters as strings (e.g., "true", "-n", "false")
@@ -32,15 +32,24 @@ fn coerce_to_bool(value: &serde_json::Value) -> Option<serde_json::Value> {
 
 /// Known parameter remappings for Gemini → Claude compatibility
 /// [FIX] Gemini sometimes uses different parameter names than specified in tool schema
-fn remap_function_call_args(tool_name: &str, args: &mut serde_json::Value) {
+pub fn remap_function_call_args(name: &str, args: &mut Value) {
     // [DEBUG] Always log incoming tool usage for diagnosis
     if let Some(obj) = args.as_object() {
-        tracing::debug!("[Streaming] Tool Call: '{}' Args: {:?}", tool_name, obj);
+        tracing::debug!("[Streaming] Tool Call: '{}' Args: {:?}", name, obj);
+    }
+
+    // [IMPORTANT] Claude Code CLI 的 EnterPlanMode 工具禁止携带任何参数
+    // 代理层注入的 reason 参数会导致 InputValidationError
+    if name == "EnterPlanMode" {
+        if let Some(obj) = args.as_object_mut() {
+            obj.clear();
+        }
+        return;
     }
 
     if let Some(obj) = args.as_object_mut() {
         // [IMPROVED] Case-insensitive matching for tool names
-        match tool_name.to_lowercase().as_str() {
+        match name.to_lowercase().as_str() {
             "grep" | "search" | "search_code_definitions" | "search_code_snippets" => {
                 // [FIX] Gemini hallucination: maps parameter description to "description" field
                 if let Some(desc) = obj.remove("description") {
