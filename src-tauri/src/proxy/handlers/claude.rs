@@ -726,8 +726,7 @@ pub async fn handle_messages(
             token_manager.mark_rate_limited_async(&email, status_code, retry_after.as_deref(), &error_text, Some(&request_with_mapped.model)).await;
         }
 
-        // 4. 处理 400 错误 (Thinking 签名失效)
-        // 由于已经主动过滤,这个错误应该很少发生
+        // 4. 处理 400 错误 (Thinking 签名失效 或 块顺序错误)
         if status_code == 400
             && !retried_without_thinking
             && (error_text.contains("Invalid `signature`")
@@ -735,11 +734,15 @@ pub async fn handle_messages(
                 || error_text.contains("thinking.thinking: Field required")
                 || error_text.contains("thinking.signature")
                 || error_text.contains("thinking.thinking")
-                || error_text.contains("INVALID_ARGUMENT")  // [New] Catch generic Google 400s
-                || error_text.contains("Corrupted thought signature") // [New] Explicit signature corruption
-                || error_text.contains("failed to deserialise") // [New] JSON structure issues
-                || error_text.contains("Invalid signature") // [New] Universal signature error
-                || error_text.contains("thinking block") // [New] Thinking block context
+                || error_text.contains("INVALID_ARGUMENT")
+                || error_text.contains("Corrupted thought signature")
+                || error_text.contains("failed to deserialise")
+                || error_text.contains("Invalid signature")
+                || error_text.contains("thinking block")
+                || error_text.contains("Found `text`")
+                || error_text.contains("Found 'text'")
+                || error_text.contains("must be `thinking`")
+                || error_text.contains("must be 'thinking'")
                 )
         {
             // Existing logic for thinking signature...

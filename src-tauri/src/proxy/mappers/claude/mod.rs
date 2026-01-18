@@ -165,7 +165,7 @@ fn process_sse_line(line: &str, state: &mut StreamingState, trace_id: &str, emai
     // [DISABLED] Temporarily disabled to fix Cherry Studio compatibility
     // Cherry Studio doesn't recognize "web_search_tool_result" type, causing validation errors
     // Search results are still displayed via Markdown text block in streaming.rs (lines 341-381)
-    // TODO: Research Antigravity2Api implementation for correct type mapping
+
     /*
     if let Some(grounding) = raw_json
         .get("candidates")

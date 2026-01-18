@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> Professional AI Account Management & Proxy System (v3.3.39)
+> Professional AI Account Management & Proxy System (v3.3.40)
 
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
@@ -9,7 +9,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-3.3.39-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-3.3.40-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -59,7 +59,7 @@ If you find this project helpful, feel free to buy me a coffee!
 *   **Smart Recommendation**: The system uses a real-time algorithm to filter and recommend the "Best Account" based on quota redundancy, supporting **one-click switching**.
 *   **Active Account Snapshot**: Visually displays the specific quota percentage and the last synchronization time of the currently active account.
 
-### 2. 🔐 Professional AI Account Management & Proxy System (v3.3.27)
+### 2. 🔐 Professional AI Account Management & Proxy System (v3.3.40)
 *   **OAuth 2.0 Authorization (Auto/Manual)**: Pre-generates a copyable authorization URL so you can finish auth in any browser; after the callback, the app auto-completes and saves the account (use “I already authorized, continue” if needed).
 *   **Multi-dimensional Import**: Supports single token entry, JSON batch import, and automatic hot migration from V1 legacy databases.
 *   **Gateway-level Views**: Supports switching between "List" and "Grid" views. Provides 403 Forbidden detection, automatically marking and skipping accounts with permission anomalies.
@@ -187,6 +187,16 @@ print(response.choices[0].message.content)
 ## 📝 Developer & Community
 
 *   **Changelog**:
+    *   **v3.3.40 (2026-01-18)**:
+        - **Deep Fix for API 400 Errors (Grep/Thinking Stability)**:
+            - **Resolved Protocol Order Violation**: Fixed the "Found 'text' instead of 'thinking'" 400 error by refactoring `streaming.rs` to stop appending illegal thinking blocks after text blocks. Signatures are now silently cached for recovery.
+            - **Enhanced Thinking Signature Self-healing**: Expanded 400 error keyword capture in `claude.rs` to cover signature invalidation, sequence errors, and protocol mismatches. Implemented millisecond-level silent retries with automated session healing.
+            - **Search Tool Schema Alignment**: Corrected parameter remapping for `Grep` and `Glob` tools, ensuring `query` is accurately mapped to `path` as per Claude Code Schema, with automatic injection of default path `.`.
+            - **Optimized Tool Renaming Strategy**: Refined the renaming logic to only target known hallucinations (like `search`), preserving the integrity of original tool call signatures.
+            - **Automatic Signature Completion**: For tool calls like LS, Bash, and TodoWrite that missing `thought_signature`, the proxy now automatically injects a placeholder to satisfy upstream constraints.
+        - **Architectural Robustness**:
+            - Enhanced the global recursive cleaner `clean_cache_control_from_messages` to strip illegal `cache_control` tags that disrupt Vertex AI/Anthropic strict mode.
+            - Updated comprehensive test examples in [docs/client_test_examples.md](docs/client_test_examples.md) covering all known 400 error scenarios.
     *   **v3.3.39 (2026-01-17)**:
         - **Deep Proxy Optimizations (Gemini Stability Boost)**:
             - **Schema Purifier Upgrade**: Supported `allOf` merging, intelligent union type selection, automatic Nullable filtering, and empty object parameter backfill, completely resolving 400 errors caused by complex tool definitions.

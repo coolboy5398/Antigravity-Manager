@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> 专业的 AI 账号管理与协议反代系统 (v3.3.39)
+> 专业的 AI 账号管理与协议反代系统 (v3.3.40)
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
 
@@ -8,7 +8,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-3.3.39-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-3.3.40-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -205,6 +205,16 @@ print(response.choices[0].message.content)
 ## 📝 开发者与社区
 
 *   **版本演进 (Changelog)**:
+    *   **v3.3.40 (2026-01-18)**:
+        - **API 400 错误深度修复 (Grep/Thinking 稳定性改进)**:
+            - **修复流式块顺序违规**: 彻底解决了 "Found 'text' instead of 'thinking'" 400 错误。修正了 `streaming.rs` 中在文字块后非法追加思维块的逻辑，改由缓存机制实现静默同步。
+            - **思维签名自愈增强**: 在 `claude.rs` 中扩展了 400 错误捕获关键词，覆盖了签名失效、顺序违规和协议不匹配场景。一旦触发，代理会自动执行消息降级并快速重试，实现用户无感知的异常自愈。
+            - **搜索工具参数深度对齐**: 修正了 `Grep` 和 `Glob` 工具的参数映射逻辑，将 `query` 准确映射为 `path` (Claude Code Schema)，并支持默认注入执行路径 `.`。
+            - **工具名重映射策略优化**: 改进了重命名逻辑，仅针对 `search` 等模型幻觉进行修正，避免破坏原始工具调用签名。
+            - **签名缺失自动补完**: 针对 LS、Bash、TodoWrite 等工具调用缺失 `thought_signature` 的情况，自动注入通用校验占位符，确保协议链路畅通。
+        - **架构健壮性优化**:
+            - 增强了全局递归清理函数 `clean_cache_control_from_messages`，确保 `cache_control` 不会干扰 Vertex AI/Anthropic 严格模式。
+            - 完善了错误日志系统，建立了详细的场景对照表并记录于 [docs/client_test_examples.md](docs/client_test_examples.md)。
     *   **v3.3.39 (2026-01-17)**:
         - **代理深度优化 (Gemini 稳定性增强)**：
             - **Schema 净化器升级**：支持 `allOf` 合并、智能联合类型选择、Nullable 自动过滤及空对象参数补全，彻底解决复杂工具定义导致的 400 错误。
