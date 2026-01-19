@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# 关闭已集成到 v3.3.42 的 PR 脚本
+# 关闭已集成到 v3.3.44 的 PR 脚本
 # 使用前请确保已安装并登录 GitHub CLI: brew install gh && gh auth login
 
 REPO="lbjlaq/Antigravity-Manager"
-VERSION="v3.3.42"
+VERSION="v3.3.44"
 
 # 感谢消息模板
 THANK_YOU_MESSAGE="感谢您的贡献！🎉
@@ -36,7 +36,9 @@ echo ""
 
 # PR 列表：PR号 作者 标题
 declare -A PRS=(
-    ["769"]="i-smile|Fix: Suppress console flashing on Windows & update Auth UI status"
+    ["825"]="IamAshrafee|[Internationalization] Device Fingerprint Dialog localization"
+    ["822"]="Koshikai|[Japanese] Add missing translations and refine terminology"
+    ["798"]="vietnhatthai|[Translation Fix] Correct spelling error in Vietnamese settings"
 )
 
 # 检查 GitHub CLI 是否已安装

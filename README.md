@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> 专业的 AI 账号管理与协议反代系统 (v3.3.42)
+> 专业的 AI 账号管理与协议反代系统 (v3.3.44)
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
 
@@ -8,7 +8,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-3.3.42-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-3.3.44-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -205,6 +205,34 @@ print(response.choices[0].message.content)
 ## 📝 开发者与社区
 
 *   **版本演进 (Changelog)**:
+    *   **v3.3.44 (2026-01-19)**:
+        - **[核心稳定性] 动态思维剥离 (Dynamic Thinking Stripping) - 彻底解决 Prompt 过长与签名错误**:
+            - **问题背景**: 在 Deep Thinking 模式下,长对话会导致两类致命错误:
+                - `Prompt is too long`: 历史 Thinking Block 累积导致 Token 超限
+                - `Invalid signature`: 代理重启后内存签名缓存丢失,旧签名被 Google 拒收
+            - **解决方案 - Context Purification (上下文净化)**:
+                - **新增 `ContextManager` 模块**: 实现 Token 估算与历史清洗逻辑
+                - **分级清洗策略**:
+                    - `Soft` (60%+ 压力): 保留最近 2 轮 Thinking,剥离更早历史
+                    - `Aggressive` (90%+ 压力): 移除所有历史 Thinking Block
+                - **差异化限额**: Flash 模型 (1M) 与 Pro 模型 (2M) 采用不同触发阈值
+                - **签名同步清除**: 清洗 Thinking 时自动移除 `thought_signature`,避免签名校验失败
+            - **透明度增强**: 响应头新增 `X-Context-Purified: true` 标识,便于调试
+            - **性能优化**: 基于字符数的轻量级 Token 估算,对请求延迟影响 \u003c 5ms
+            - **影响范围**: 彻底解决 Deep Thinking 模式下的两大顽疾,释放 40%-60% Context 空间,确保长对话稳定性
+    *   **v3.3.43 (2026-01-18)**:
+        - **[国际化] 设备指纹对话框全量本地化 (PR #825, 感谢 @IamAshrafee)**:
+            - 彻底解决了设备指纹（Device Fingerprint）对话框中残留的硬编码中文字符串问题。
+            - 补全了英、繁、日等 8 种语言的翻译骨架，提升全球化体验。
+        - **[日语优化] 日语翻译补全与术语修正 (PR #822, 感谢 @Koshikai)**:
+            - 补全了 50 多个缺失的翻译键，覆盖配额保护、HTTP API、更新检查等核心设置。
+            - 优化了技术术语，使日语表达更自然（例如：`pro_low` 译为“低消費”）。
+        - **[翻译修复] 越南语拼写错误修正 (PR #798, 感谢 @vietnhatthai)**:
+            - 修复了越南语设置中 `refresh_msg` 的拼写错误（`hiện đài` -> `hiện tại`）。
+        - **[兼容性增强] 新增 Google API Key 原生支持 (PR #831)**:
+            - **支持 `x-goog-api-key` 请求头**:
+                - 认证中间件现在支持识别 `x-goog-api-key` 头部。
+                - 提高了与 Google 官方 SDK 及第三方 Google 风格客户端的兼容性，无需再手动修改 Header 为 `x-api-key`。
     *   **v3.3.42 (2026-01-18)**:
         - **[流量日志增强] 协议自动识别与流式响应整合 (PR #814)**:
             - **协议标签分类**: 流量日志列表现在可以根据 URI 自动识别并标注协议类型（OpenAI 绿色、Anthropic 橙色、Gemini 蓝色），使请求来源一目了然。

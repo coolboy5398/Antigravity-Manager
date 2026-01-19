@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> Professional AI Account Management & Proxy System (v3.3.42)
+> Professional AI Account Management & Proxy System (v3.3.44)
 
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
@@ -9,7 +9,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-3.3.42-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-3.3.44-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -59,7 +59,7 @@ If you find this project helpful, feel free to buy me a coffee!
 *   **Smart Recommendation**: The system uses a real-time algorithm to filter and recommend the "Best Account" based on quota redundancy, supporting **one-click switching**.
 *   **Active Account Snapshot**: Visually displays the specific quota percentage and the last synchronization time of the currently active account.
 
-### 2. 🔐 Professional AI Account Management & Proxy System (v3.3.42)
+### 2. 🔐 Professional AI Account Management & Proxy System
 *   **OAuth 2.0 Authorization (Auto/Manual)**: Pre-generates a copyable authorization URL so you can finish auth in any browser; after the callback, the app auto-completes and saves the account (use “I already authorized, continue” if needed).
 *   **Multi-dimensional Import**: Supports single token entry, JSON batch import, and automatic hot migration from V1 legacy databases.
 *   **Gateway-level Views**: Supports switching between "List" and "Grid" views. Provides 403 Forbidden detection, automatically marking and skipping accounts with permission anomalies.
@@ -187,6 +187,34 @@ print(response.choices[0].message.content)
 ## 📝 Developer & Community
 
 *   **Changelog**:
+    *   **v3.3.44 (2026-01-19)**:
+        - **[Core Stability] Dynamic Thinking Stripping - Complete Fix for Prompt Too Long & Signature Errors**:
+            - **Background**: In Deep Thinking mode, long conversations cause two critical errors:
+                - `Prompt is too long`: Historical Thinking Blocks accumulate and exceed token limits
+                - `Invalid signature`: Proxy restarts clear in-memory signature cache, causing Google to reject old signatures
+            - **Solution - Context Purification**:
+                - **New `ContextManager` Module**: Implements token estimation and history purification logic
+                - **Tiered Purification Strategy**:
+                    - `Soft` (60%+ pressure): Retains last ~2 turns of Thinking, strips earlier history
+                    - `Aggressive` (90%+ pressure): Removes all historical Thinking Blocks
+                - **Differentiated Limits**: Flash models (1M) and Pro models (2M) use different trigger thresholds
+                - **Signature Sync Removal**: Automatically removes `thought_signature` when purifying Thinking to avoid validation failures
+            - **Transparency Enhancement**: Added `X-Context-Purified: true` response header for debugging
+            - **Performance Optimization**: Lightweight character-based token estimation with <5ms request latency impact
+            - **Impact**: Completely resolves two major issues in Deep Thinking mode, freeing 40%-60% context space and ensuring long conversation stability
+    *   **v3.3.43 (2026-01-18)**:
+        - **[i18n] Full Internationalization of Device Fingerprint Dialog (PR #825, thanks to @IamAshrafee)**:
+            - Completely resolved the hard-coded Chinese strings in the Device Fingerprint dialog.
+            - Added translation skeletons for 8 languages (EN, JA, VI, etc.) to ensure a consistent experience.
+        - **[Japanese] Translation Completion & Terminology Optimization (PR #822, thanks to @Koshikai)**:
+            - Added 50+ missing translation keys covering core settings like Quota Protection, HTTP API, and Update Checks.
+            - Improved technical wording for natural Japanese expressions (e.g., `pro_low` to "低消費").
+        - **[Fix] Vietnamese Spelling Correction (PR #798, thanks to @vietnhatthai)**:
+            - Fixed a typo in the Vietnamese `refresh_msg` (`hiện đài` -> `hiện tại`).
+        - **[Compatibility] Native Google API Key Support (PR #831)**:
+            - **Added `x-goog-api-key` Header Support**:
+                - The auth middleware now recognizes the `x-goog-api-key` header.
+                - Improves compatibility with official Google SDKs and third-party tools that use Google-style headers, eliminating the need to manually change header to `x-api-key`.
     *   **v3.3.42 (2026-01-18)**:
         - **[Traffic Log Enhancement] Protocol Recognition & Stream Integration (PR #814)**:
             - **Protocol Labeling**: Traffic logs now automatically identify and label protocol types (OpenAI in Green, Anthropic in Orange, Gemini in Blue) based on URI, providing instant clarity on request sources.
