@@ -708,24 +708,46 @@ pub async fn handle_completions(
             }
         }
         
-        // input -> user message (仅处理简单字符串,复杂数组已被第一次标准化处理)
+        // input -> user message (支持对象数组形式的对话历史)
         if let Some(input) = body.get("input") {
-             // Handle array or string input
-            let content = if let Some(s) = input.as_str() {
-                s.to_string()
-            } else if let Some(arr) = input.as_array() {
-                 // Join array parts (简单处理,复杂数组应该已被第一次标准化处理)
-                 arr.iter().map(|v| v.as_str().unwrap_or("")).collect::<Vec<_>>().join("\n")
-            } else {
-                input.to_string()
-            };
-            
-            if !content.is_empty() {
+            if let Some(s) = input.as_str() {
                 messages.push(json!({
                     "role": "user",
-                    "content": content
+                    "content": s
                 }));
-            }
+            } else if let Some(arr) = input.as_array() {
+                // 判断是消息对象数组还是简单的内容块/字符串数组
+                let is_message_array = arr.first().and_then(|v| v.as_object()).map(|obj| obj.contains_key("role")).unwrap_or(false);
+                
+                if is_message_array {
+                    // 深度识别：像处理 messages 一样处理 input 数组
+                    for item in arr {
+                        messages.push(item.clone());
+                    }
+                } else {
+                    // 降级处理：传统的字符串或混合内容拼接
+                    let content = arr.iter().map(|v| {
+                        if let Some(s) = v.as_str() { s.to_string() }
+                        else if v.is_object() { v.to_string() }
+                        else { "".to_string() }
+                    }).collect::<Vec<_>>().join("\n");
+                    
+                    if !content.is_empty() {
+                        messages.push(json!({
+                            "role": "user",
+                            "content": content
+                        }));
+                    }
+                }
+            } else {
+                let content = input.to_string();
+                if !content.is_empty() {
+                    messages.push(json!({
+                        "role": "user",
+                        "content": content
+                    }));
+                }
+            };
         }
         
         if let Some(obj) = body.as_object_mut() {

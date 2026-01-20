@@ -25,7 +25,7 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
     
     // 1. 提取所有 System Message 并注入补丁
     let mut system_instructions: Vec<String> = request.messages.iter()
-        .filter(|msg| msg.role == "system")
+        .filter(|msg| msg.role == "system" || msg.role == "developer")
         .filter_map(|msg| {
             msg.content.as_ref().map(|c| match c {
                 OpenAIContent::String(s) => s.clone(),
@@ -70,11 +70,11 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
         tracing::debug!("从全局存储获取到 thoughtSignature (长度: {})", global_thought_sig.as_ref().unwrap().len());
     }
 
-    // 2. 构建 Gemini contents (过滤掉 system)
+    // 2. 构建 Gemini contents (过滤掉 system/developer 指令)
     let contents: Vec<Value> = request
         .messages
         .iter()
-        .filter(|msg| msg.role != "system")
+        .filter(|msg| msg.role != "system" && msg.role != "developer")
         .map(|msg| {
             let role = match msg.role.as_str() {
                 "assistant" => "model",
