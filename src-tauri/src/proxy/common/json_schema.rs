@@ -102,6 +102,19 @@ fn clean_json_schema_recursive(value: &mut Value) -> bool {
                 }
             }
 
+            // 1.5. [FIX] 递归清理 anyOf/oneOf 数组中的每个分支
+            // 必须在合并逻辑之前执行，确保合并的分支已经被清洗
+            if let Some(Value::Array(any_of)) = map.get_mut("anyOf") {
+                for branch in any_of.iter_mut() {
+                    clean_json_schema_recursive(branch);
+                }
+            }
+            if let Some(Value::Array(one_of)) = map.get_mut("oneOf") {
+                for branch in one_of.iter_mut() {
+                    clean_json_schema_recursive(branch);
+                }
+            }
+
             // 2. [FIX #815] 处理 anyOf/oneOf 联合类型: 合并属性而非直接删除
             let mut union_to_merge = None;
             if map.get("type").is_none() || map.get("type").and_then(|t| t.as_str()) == Some("object") {
@@ -266,6 +279,13 @@ fn clean_json_schema_recursive(value: &mut Value) -> bool {
                         }
                     }
                 }
+            }
+        }
+        Value::Array(arr) => {
+            // [FIX] 递归清理数组中的每个元素
+            // 这确保了所有数组类型的值（包括但不限于 anyOf、oneOf、items、enum 等）都会被递归处理
+            for item in arr.iter_mut() {
+                clean_json_schema_recursive(item);
             }
         }
         _ => {}
@@ -665,5 +685,115 @@ mod tests {
         assert_eq!(schema["type"], "string");
         assert!(schema["description"].as_str().unwrap().contains("User name"));
         assert!(schema["description"].as_str().unwrap().contains("(nullable)"));
+    }
+
+    // [NEW TEST] 验证 anyOf 内部的 propertyNames 被移除
+    #[test]
+    fn test_clean_anyof_with_propertynames() {
+        let mut schema = json!({
+            "properties": {
+                "config": {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "propertyNames": {"pattern": "^[a-z]+$"},
+                            "properties": {
+                                "key": {"type": "string"}
+                            }
+                        },
+                        {"type": "null"}
+                    ]
+                }
+            }
+        });
+
+        clean_json_schema(&mut schema);
+
+        // 验证 anyOf 被移除（已被合并）
+        let config = &schema["properties"]["config"];
+        assert!(config.get("anyOf").is_none());
+        
+        // 验证 propertyNames 被移除
+        assert!(config.get("propertyNames").is_none());
+        
+        // 验证合并后的 properties 存在且没有 propertyNames
+        assert!(config.get("properties").is_some());
+        assert_eq!(config["properties"]["key"]["type"], "string");
+    }
+
+    // [NEW TEST] 验证 items 数组中的 const 被移除
+    #[test]
+    fn test_clean_items_array_with_const() {
+        let mut schema = json!({
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "const": "active",
+                        "type": "string"
+                    }
+                }
+            }
+        });
+
+        clean_json_schema(&mut schema);
+
+        // 验证 const 被移除
+        let status = &schema["items"]["properties"]["status"];
+        assert!(status.get("const").is_none());
+        
+        // 验证 type 仍然存在
+        assert_eq!(status["type"], "string");
+    }
+
+    // [NEW TEST] 验证多层嵌套数组的清理
+    #[test]
+    fn test_deep_nested_array_cleaning() {
+        let mut schema = json!({
+            "properties": {
+                "data": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "propertyNames": {"maxLength": 10},
+                                        "const": "test",
+                                        "properties": {
+                                            "name": {"type": "string"}
+                                        }
+                                    },
+                                    {"type": "null"}
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        });
+
+        clean_json_schema(&mut schema);
+
+        // 验证深层嵌套的非法字段都被移除
+        let data = &schema["properties"]["data"];
+        
+        // anyOf 应该被合并移除
+        assert!(data.get("anyOf").is_none());
+        
+        // 验证没有 propertyNames 和 const 逃逸到顶层
+        assert!(data.get("propertyNames").is_none());
+        assert!(data.get("const").is_none());
+        
+        // 验证结构被正确保留
+        assert_eq!(data["type"], "array");
+        if let Some(items) = data.get("items") {
+            // items 内部的 anyOf 也应该被合并
+            assert!(items.get("anyOf").is_none());
+            assert!(items.get("propertyNames").is_none());
+            assert!(items.get("const").is_none());
+        }
     }
 }

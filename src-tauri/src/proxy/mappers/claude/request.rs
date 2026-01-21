@@ -1623,11 +1623,15 @@ fn build_generation_config(
     
     config["maxOutputTokens"] = json!(final_max_tokens);
 
-    // [优化] 设置全局停止序列,防止流式输出冗余 (控制在 4 个以内)
+    // [优化] 设置全局停止序列,防止模型幻觉出对话标记
+    // 注意: 不包含 "[DONE]" 是因为:
+    //   1. "[DONE]" 是 SSE 协议的标准结束标记,在代码/文档中经常出现
+    //   2. 将其作为 stopSequence 会导致模型输出被意外截断 (如解释 SSE 协议时)
+    //   3. Gemini 流的真正结束由 finishReason 字段控制,无需依赖 stopSequence
+    //   4. SSE 层面的 "data: [DONE]" 已在 mod.rs 中单独处理
     config["stopSequences"] = json!([
         "<|user|>",
         "<|end_of_turn|>",
-        "[DONE]",
         "\n\nHuman:"
     ]);
 

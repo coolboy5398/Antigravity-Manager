@@ -47,7 +47,7 @@ pub enum OpenAIContent {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum OpenAIContentBlock {
-    #[serde(rename = "text")]
+    #[serde(rename = "text", alias = "input_text")]
     Text {
         text: String,
     },

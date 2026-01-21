@@ -777,32 +777,31 @@
         "message": "新版本已準備就緒，包含多項最佳化與改進。當前版本: v{{current}}",
         "action": "立即更新"
     },
-    "errors": {
-        "stream": {
-            "timeout_error": "請求逾時,請檢查網路連線",
-            "connection_error": "無法連線到伺服器,請檢查網路或代理設定",
-            "decode_error": "網路連線不穩定,資料傳輸中斷。建議: 1) 檢查網路連線 2) 更換代理節點 3) 稍後重試",
-            "stream_error": "資料流傳輸錯誤,請稍後重試",
-            "unknown_error": "發生未知錯誤,請稍後重試"
-        }
-    },
     "token_stats": {
         "title": "Token 消費統計",
-        "hourly": "小時",
-        "daily": "日",
-        "weekly": "週",
+        "hourly": "每小時",
+        "daily": "每日",
+        "weekly": "每週",
         "total_tokens": "總 Token",
         "input_tokens": "輸入 Token",
         "output_tokens": "輸出 Token",
         "accounts_used": "活躍帳號",
+        "models_used": "使用模型",
+        "model_trend": "分模型使用趨勢",
+        "account_trend": "分帳號使用趨勢",
         "usage_trend": "Token 使用趨勢",
-        "input": "輸入",
-        "output": "輸出",
-        "no_data": "暫無數據",
         "by_account": "分帳號統計",
+        "by_model": "按模型",
+        "by_account_view": "按帳號",
+        "model_details": "分模型詳細統計",
         "account_details": "帳號詳細統計",
+        "model": "模型",
         "account": "帳號",
         "requests": "請求數",
-        "total": "合計"
+        "input": "輸入",
+        "output": "輸出",
+        "total": "合計",
+        "percentage": "佔比",
+        "no_data": "暫無資料"
     }
 }

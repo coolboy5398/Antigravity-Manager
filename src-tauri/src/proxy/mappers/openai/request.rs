@@ -20,12 +20,27 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
     let is_claude_thinking = mapped_model_lower.ends_with("-thinking");
     let is_thinking_model = is_gemini_3_thinking || is_claude_thinking;
 
+    // [NEW] 检查历史消息是否兼容思维模型 (是否有 Assistant 消息缺失 reasoning_content)
+    let has_incompatible_assistant_history = request.messages.iter()
+        .any(|msg| msg.role == "assistant" && msg.reasoning_content.as_ref().map(|s| s.is_empty()).unwrap_or(true));
+    
+    // 获取全局存储的思维签名
+    let global_thought_sig = get_thought_signature();
+    
+    // [NEW] 决定是否开启 Thinking 功能:
+    // 如果是 Claude 思考模型且历史不兼容且没有可用签名来占位, 则禁用 Thinking 以防 400
+    let mut actual_include_thinking = is_thinking_model;
+    if is_claude_thinking && has_incompatible_assistant_history && global_thought_sig.is_none() {
+        tracing::warn!("[OpenAI-Thinking] Incompatible assistant history detected for Claude thinking model without global signature. Disabling thinking for this request to avoid 400 error.");
+        actual_include_thinking = false;
+    }
+
     tracing::debug!("[Debug] OpenAI Request: original='{}', mapped='{}', type='{}', has_image_config={}", 
         request.model, mapped_model, config.request_type, config.image_config.is_some());
     
     // 1. 提取所有 System Message 并注入补丁
     let mut system_instructions: Vec<String> = request.messages.iter()
-        .filter(|msg| msg.role == "system")
+        .filter(|msg| msg.role == "system" || msg.role == "developer")
         .filter_map(|msg| {
             msg.content.as_ref().map(|c| match c {
                 OpenAIContent::String(s) => s.clone(),
@@ -70,11 +85,11 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
         tracing::debug!("从全局存储获取到 thoughtSignature (长度: {})", global_thought_sig.as_ref().unwrap().len());
     }
 
-    // 2. 构建 Gemini contents (过滤掉 system)
+    // 2. 构建 Gemini contents (过滤掉 system/developer 指令)
     let contents: Vec<Value> = request
         .messages
         .iter()
-        .filter(|msg| msg.role != "system")
+        .filter(|msg| msg.role != "system" && msg.role != "developer")
         .map(|msg| {
             let role = match msg.role.as_str() {
                 "assistant" => "model",
@@ -96,6 +111,25 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
                     }
                     parts.push(thought_part);
                 }
+            } else if actual_include_thinking && role == "model" {
+                // [FIX] 解决 Claude 3.7 Thinking 模型的强制性校验:
+                // "Expected thinking... but found tool_use/text"
+                // 如果是思维模型且缺失 reasoning_content, 则注入占位符
+                tracing::debug!("[OpenAI-Thinking] Injecting placeholder thinking block for assistant message");
+                let mut thought_part = json!({
+                    "text": "Applying tool decisions and generating response...",
+                    "thought": true,
+                });
+                
+                // [NEW] 优先使用全局存储的思维签名 (如果可用)
+                if let Some(ref sig) = global_thought_sig {
+                    thought_part["thoughtSignature"] = json!(sig);
+                } else if !mapped_model.starts_with("projects/") && mapped_model.contains("gemini") {
+                    // [FIX] 仅针对 Gemini 思维模型注入跳过标签, Claude 不识别此标签
+                    thought_part["thoughtSignature"] = json!("skip_thought_signature_validator");
+                }
+                
+                parts.push(thought_part);
             }
 
             // Handle content (multimodal or text)
@@ -285,7 +319,7 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
     }
 
     // 为 thinking 模型注入 thinkingConfig (使用 thinkingBudget 而非 thinkingLevel)
-    if is_thinking_model {
+    if actual_include_thinking {
         gen_config["thinkingConfig"] = json!({
             "includeThoughts": true,
             "thinkingBudget": 16000
@@ -372,6 +406,22 @@ pub fn transform_openai_request(request: &OpenAIRequest, project_id: &str, mappe
                 
                 // 递归转换 type 为大写 (符合 Protobuf 定义)
                 enforce_uppercase_types(params);
+            } else {
+                // [FIX] 针对自定义工具 (如 apply_patch) 补全缺失的参数模式
+                // 解决 Vertex AI (Claude) 报错: tools.5.custom.input_schema: Field required
+                tracing::debug!("[OpenAI-Request] Injecting default schema for custom tool: {}", 
+                    gemini_func.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"));
+                
+                gemini_func.as_object_mut().unwrap().insert("parameters".to_string(), json!({
+                    "type": "OBJECT",
+                    "properties": {
+                        "content": {
+                            "type": "STRING",
+                            "description": "The raw content or patch to be applied"
+                        }
+                    },
+                    "required": ["content"]
+                }));
             }
             function_declarations.push(gemini_func);
         }

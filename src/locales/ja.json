@@ -794,15 +794,6 @@
         "message": "最適化と改善が含まれた新しいバージョンの準備ができました。現在のバージョン: v{{current}}",
         "action": "今すぐ更新"
     },
-    "errors": {
-        "stream": {
-            "timeout_error": "リクエストがタイムアウトしました。ネットワーク接続を確認してください",
-            "connection_error": "接続に失敗しました。ネットワークまたはプロキシ設定を確認してください",
-            "decode_error": "ネットワークが不安定で、データ転送が中断されました。試してください：1）ネットワークを確認する 2）プロキシを切り替える 3）再試行する",
-            "stream_error": "ストリーム転送エラーが発生しました。後でもう一度お試しください",
-            "unknown_error": "不明なエラーが発生しました。後でもう一度お試しください"
-        }
-    },
     "token_stats": {
         "title": "トークン統計",
         "hourly": "時間単位",
@@ -812,14 +803,22 @@
         "input_tokens": "入力トークン",
         "output_tokens": "出力トークン",
         "accounts_used": "アクティブアカウント",
-        "usage_trend": "使用傾向",
-        "input": "入力",
-        "output": "出力",
-        "no_data": "データなし",
+        "models_used": "使用モデル",
+        "model_trend": "モデル別使用傾向",
+        "account_trend": "アカウント別使用傾向",
+        "usage_trend": "トークン使用傾向",
         "by_account": "アカウント別",
-        "account_details": "アカウント詳細",
+        "by_model": "モデル別",
+        "by_account_view": "アカウント別",
+        "model_details": "モデル別詳細統計",
+        "account_details": "アカウント別詳細統計",
+        "model": "モデル",
         "account": "アカウント",
         "requests": "リクエスト数",
-        "total": "合計"
+        "input": "入力",
+        "output": "出力",
+        "total": "合計",
+        "percentage": "割合",
+        "no_data": "データなし"
     }
 }

@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> Professional AI Account Management & Proxy System (v3.3.45)
+> Professional AI Account Management & Proxy System (v3.3.46)
 
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
@@ -9,7 +9,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-3.3.45-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-3.3.46-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -211,6 +211,39 @@ print(response.choices[0].message.content)
 ## 📝 Developer & Community
 
 *   **Changelog**:
+    *   **v3.3.46 (2026-01-20)**:
+        -   **[Enhancement] Deep Optimization & i18n Standardization for Token Stats (PR #892)**:
+            -   **Unified UI/UX**: Implemented custom Tooltip components to unify hover styles across Area, Bar, and Pie charts, enhancing contrast and readability in Dark Mode.
+            -   **Visual Refinements**: Optimized chart cursors and grid lines, removing redundant hover overlays for a cleaner, more professional interface.
+            -   **Adaptive Layout**: Improved Flexbox layout for chart containers, ensuring they fill available vertical space across various window sizes and eliminating empty gaps.
+            -   **Per-Account Trend Statistics**: Added a "By Account" view mode, enabling intuitive analysis of token consumption shares and activity levels via pie and trend charts.
+            -   **i18n Standardization**: Completely resolved duplicate key warnings in `ja.json`, `zh-TW.json`, `vi.json`, `ru.json`, and `tr.json`. Added missing translations for `account_trend`, `by_model`, etc., ensuring consistent UI presentation across all 8 supported languages.
+        -   **[Core Fix] Remove [DONE] from Stop Sequences to Prevent Truncation (PR #889)**:
+            -   **Background**: `[DONE]` is a standard SSE (Server-Sent Events) protocol end signal that frequently appears in code and documentation. Including it as a `stopSequence` caused unexpected output truncation when the model explained SSE-related content.
+            -   **Fix Details**: Removed the `"[DONE]"` marker from the Gemini request's `stopSequences` array.
+            -   **Technical Notes**:
+                - Gemini stream termination is controlled by the `finishReason` field, not `stopSequence`
+                - SSE-level `"data: [DONE]"` is handled separately in `mod.rs`
+            -   **Impact**: Resolved the issue where model output was prematurely terminated when generating content containing SSE protocol explanations, code examples, etc. (Issue #888).
+        -   **[Deployment] Docker Build Dual-Mode Adaptation (Default/China Mode)**:
+            -   **Dual-Mode Architecture**: Introduced `ARG USE_CHINA_MIRROR` build argument. The default mode keeps the original Debian official sources (ideal for overseas/cloud builds); when enabled, it automatically switches to Tsinghua University (TUNA) mirrors (optimized for mainland China).
+            -   **Flexibility Boost**: Completely resolved slow builds in overseas environments caused by hardcoded mirrors, while preserving acceleration for users in China.
+        -   **[Stability] VNC & Container Startup Logic Hardening (PR #881)**:
+            -   **Zombie Process Cleanup**: Optimized cleanup logic in `start.sh` using `pkill` to precisely terminate Xtigervnc and websockify processes and clean up `/tmp/.X11-unix` lock files, resolving various VNC connection issues after restarts.
+            -   **Healthcheck Upgrade**: Expanded Healthcheck to include websockify and the main application, ensuring container status more accurately reflects service availability.
+            -   **Major Fix**: Resolved OpenAI protocol 404 errors and fixed a compatibility defect where Codex (`/v1/responses`) with complex object array `input` or custom tools like `apply_patch` (missing schema) caused upstream 400 (`INVALID_ARGUMENT`) errors.
+            -   **Thinking Model Optimization**: Resolved mandatory error issues with Claude 3.7 Thinking models when thought chains are missing in historical messages, implementing intelligent protocol fallback and placeholder block injection.
+            -   **Protocol Completion**: Enhanced OpenAI Legacy endpoints with Token usage statistics and Header injection. Added support for `input_text` content blocks and mapped the `developer` role to system instructions.
+            -   **requestId Unification**: Unified `requestId` prefix to `agent-` across all OpenAI paths to resolve ID recognition issues with some clients. interface response bodies, resolving the issue where token consumption was not displayed in traffic logs.
+        -   **[Core Fix] JSON Schema Array Recursive Cleaning Fix (Resolution of Gemini API 400 Errors)**:
+            -   **Background**: Gemini API does not support JSON Schema fields like `propertyNames` and `const`. Although whitelist filtering logic was in place, the `clean_json_schema_recursive` function lacked recursive handling for `Value::Array` types, causing illegal fields nested within `anyOf`, `oneOf`, or `items` arrays to escape cleaning, triggering `Invalid JSON payload received. Unknown name "propertyNames"/"const"` errors.
+            -   **Fix Details**:
+                - **Added Recursive Cleaning Before anyOf/oneOf Merging**: Recursively cleans each branch's content before merging `anyOf`/`oneOf` branches, ensuring merged branches are already cleaned and preventing illegal fields from escaping during the merge process.
+                - **Added Generic Array Recursive Processing Branch**: Added a `Value::Array` branch to the `match` statement, ensuring all array-type values (including `items`, `enum`, etc.) are recursively cleaned, covering all array fields that may contain Schema definitions.
+            -   **Test Verification**: Added 3 test cases to verify the fix. All 14 tests passed with no regressions.
+            -   **Impact**: Resolved 400 errors caused by nested array structures in complex tool definitions (such as MCP tools), ensuring 100% Gemini API compatibility.
+        -   **[System Consistency] Unified requestId Prefixes**:
+            -   **Fix Details**: Unified the `requestId` prefix for OpenAI paths from `openai-` to `agent-`, ensuring high consistency with Claude protocol characteristics and improving upstream compatibility.
     *   **v3.3.45 (2026-01-19)**:
         - **[Core] Critical Fix for Claude/Gemini SSE Interruptions & 0-Token Responses (Issue #859)**:
             - **Enhanced Peek Logic**: The proxy now loops through initial SSE chunks to filter out heartbeat pings and empty data, ensuring a valid content block is received before committing to a 200 OK response.

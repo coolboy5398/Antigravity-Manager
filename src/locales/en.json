@@ -1,6 +1,5 @@
 {
     "common": {
-        "empty": "Empty",
         "loading": "Loading...",
         "load_more": "Load More",
         "add": "Add",
@@ -40,7 +39,7 @@
         "accounts": "Accounts",
         "proxy": "API Proxy",
         "call_records": "Traffic Logs",
-        "token_stats": "Statistics",
+        "token_stats": "Token Stats",
         "settings": "Settings",
         "theme_to_dark": "Switch to Dark Mode",
         "theme_to_light": "Switch to Light Mode",
@@ -169,8 +168,7 @@
             "restored": "Restored",
             "deleted": "Deleted",
             "directory_opened": "Storage directory opened",
-            "original_fingerprint_not_found": "Original fingerprint not found",
-            "storage_json_not_found": "storage.json not found, please ensure Antigravity has been run to generate the config file"
+            "original_fingerprint_not_found": "Original fingerprint not found"
         },
         "warmup_all": "One-click Warmup",
         "warmup_selected": "Warmup ({{count}})",
@@ -540,12 +538,7 @@
                 "max_wait": "Max Wait (sec)",
                 "max_wait_tooltip": "Only used in 'Cache First' mode: wait instead of switching if the rate limit reset time is below this value.",
                 "clear_bindings": "Clear Session Bindings",
-                "clear_bindings_tooltip": "Hard reset all session-account bindings, forcing accounts to be re-assigned on next request.",
-                "fixed_account": "Fixed Account Mode",
-                "fixed_account_tooltip": "When enabled, all API requests will use only the selected account instead of rotating between accounts.",
-                "round_robin_set": "Round-robin mode enabled",
-                "fixed_account_set": "Fixed account mode enabled",
-                "account_changed": "Account changed to: {{email}}"
+                "clear_bindings_tooltip": "Hard reset all session-account bindings, forcing accounts to be re-assigned on next request."
             },
             "experimental": {
                 "title": "Experimental Settings",
@@ -781,6 +774,33 @@
         "message": "A new version is ready with optimizations and improvements. Current: v{{current}}",
         "action": "Update Now"
     },
+    "token_stats": {
+        "title": "Token Consumption Stats",
+        "hourly": "Hour",
+        "daily": "Day",
+        "weekly": "Week",
+        "total_tokens": "Total Tokens",
+        "input_tokens": "Input Tokens",
+        "output_tokens": "Output Tokens",
+        "accounts_used": "Active Accounts",
+        "models_used": "Models Used",
+        "model_trend": "Model Usage Trend",
+        "account_trend": "Account Usage Trend",
+        "usage_trend": "Token Usage Trend",
+        "by_account": "By Account",
+        "by_model": "By Model",
+        "by_account_view": "By Account",
+        "model_details": "Model Breakdown",
+        "account_details": "Account Breakdown",
+        "model": "Model",
+        "account": "Account",
+        "requests": "Requests",
+        "input": "Input",
+        "output": "Output",
+        "total": "Total",
+        "percentage": "Share",
+        "no_data": "No data available"
+    },
     "errors": {
         "stream": {
             "timeout_error": "Request timeout, please check your network connection",
@@ -789,24 +809,5 @@
             "stream_error": "Stream transmission error, please retry later",
             "unknown_error": "Unknown error occurred, please retry later"
         }
-    },
-    "token_stats": {
-        "title": "Token Usage Statistics",
-        "hourly": "Hourly",
-        "daily": "Daily",
-        "weekly": "Weekly",
-        "total_tokens": "Total Tokens",
-        "input_tokens": "Input Tokens",
-        "output_tokens": "Output Tokens",
-        "accounts_used": "Active Accounts",
-        "usage_trend": "Token Usage Trend",
-        "input": "Input",
-        "output": "Output",
-        "no_data": "No Data",
-        "by_account": "Account Statistics",
-        "account_details": "Account Details",
-        "account": "Account",
-        "requests": "Requests",
-        "total": "Total"
     }
 }

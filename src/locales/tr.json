@@ -746,15 +746,6 @@
         "message": "Optimizasyonlar ve iyileştirmeler içeren yeni bir sürüm hazır. Mevcut: v{{current}}",
         "action": "Şimdi Güncelle"
     },
-    "errors": {
-        "stream": {
-            "timeout_error": "İstek zaman aşımına uğradı, lütfen ağ bağlantınızı kontrol edin",
-            "connection_error": "Bağlantı hatası, lütfen ağ veya proxy ayarlarınızı kontrol edin",
-            "decode_error": "Ağ kararsız, veri iletimi kesildi. Deneyin: 1) Ağı kontrol edin 2) Proxy'yi değiştirin 3) Tekrar deneyin",
-            "stream_error": "Akış iletim hatası, lütfen daha sonra tekrar deneyin",
-            "unknown_error": "Bilinmeyen bir hata oluştu, lütfen daha sonra tekrar deneyin"
-        }
-    },
     "token_stats": {
         "title": "Token İstatistikleri",
         "hourly": "Saatlik",
@@ -764,14 +755,22 @@
         "input_tokens": "Giriş Tokenleri",
         "output_tokens": "Çıkış Tokenleri",
         "accounts_used": "Aktif Hesaplar",
-        "usage_trend": "Kullanım Trendi",
-        "input": "Giriş",
-        "output": "Çıkış",
-        "no_data": "Veri Yok",
-        "by_account": "Hesap İstatistikleri",
+        "models_used": "Kullanılan Modeller",
+        "model_trend": "Model Kullanım Trendi",
+        "account_trend": "Hesaba Göre Kullanım Trendi",
+        "usage_trend": "Token Kullanım Trendi",
+        "by_account": "Hesaba Göre",
+        "by_model": "Modele Göre",
+        "by_account_view": "Hesaba Göre",
+        "model_details": "Model Detayları",
         "account_details": "Hesap Detayları",
+        "model": "Model",
         "account": "Hesap",
         "requests": "İstekler",
-        "total": "Toplam"
+        "input": "Giriş",
+        "output": "Çıkış",
+        "total": "Toplam",
+        "percentage": "Oran",
+        "no_data": "Veri yok"
     }
 }
