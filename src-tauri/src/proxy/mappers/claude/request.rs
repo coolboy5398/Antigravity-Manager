@@ -1697,21 +1697,21 @@ fn build_generation_config(
 
     // Effort level mapping (Claude API v2.0.67+)
     // Maps Claude's output_config.effort to Gemini's effortLevel
-    if let Some(output_config) = &claude_req.output_config {
-        if let Some(effort) = &output_config.effort {
-            // config["effortLevel"] = json!(match effort.to_lowercase().as_str() {
-            //     "high" => "HIGH",
-            //     "medium" => "MEDIUM",
-            //     "low" => "LOW",
-            //     _ => "HIGH" // Default to HIGH for unknown values
-            // });
-            // tracing::debug!(
-            //     "[Generation-Config] Effort level set: {} -> {}",
-            //     effort,
-            //     config["effortLevel"]
-            // );
-        }
-    }
+    // if let Some(output_config) = &claude_req.output_config {
+    //     if let Some(effort) = &output_config.effort {
+    //         config["effortLevel"] = json!(match effort.to_lowercase().as_str() {
+    //             "high" => "HIGH",
+    //             "medium" => "MEDIUM",
+    //             "low" => "LOW",
+    //             _ => "HIGH", // Default to HIGH for unknown values
+    //         });
+    //         tracing::debug!(
+    //             "[Generation-Config] Effort level set: {} -> {}",
+    //             effort,
+    //             config["effortLevel"]
+    //         );
+    //     }
+    // }
 
     // web_search 强制 candidateCount=1
     /*if has_web_search {
