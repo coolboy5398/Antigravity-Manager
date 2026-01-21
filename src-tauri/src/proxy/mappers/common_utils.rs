@@ -19,11 +19,18 @@ pub struct RequestConfig {
 pub fn resolve_request_config(
     original_model: &str, 
     mapped_model: &str,
-    tools: &Option<Vec<Value>>
+    tools: &Option<Vec<Value>>,
+    size: Option<&str>,        // [NEW] Image size parameter
+    quality: Option<&str>      // [NEW] Image quality parameter
 ) -> RequestConfig {
     // 1. Image Generation Check (Priority)
     if mapped_model.starts_with("gemini-3-pro-image") {
-        let (image_config, parsed_base_model) = parse_image_config(original_model);
+        // [MODIFIED] Use unified parameter parsing function
+        let (image_config, parsed_base_model) = parse_image_config_with_params(
+            original_model,
+            size,
+            quality
+        );
         
         return RequestConfig {
             request_type: "image_gen".to_string(),
@@ -99,30 +106,96 @@ pub fn resolve_request_config(
 /// Parse image configuration from model name suffixes
 /// Returns (image_config, clean_model_name)
 fn parse_image_config(model_name: &str) -> (Value, String) {
+    parse_image_config_with_params(model_name, None, None)
+}
+
+/// Extended version that accepts OpenAI size and quality parameters
+/// 
+/// This function supports parsing image configuration from:
+/// 1. OpenAI API parameters (size, quality) - takes priority
+/// 2. Model name suffixes (e.g., -16x9, -4k) - fallback for backward compatibility
+/// 
+/// # Arguments
+/// * `model_name` - The model name (may contain suffixes like -16x9-4k)
+/// * `size` - Optional OpenAI size parameter (e.g., "1280x720", "1792x1024")
+/// * `quality` - Optional OpenAI quality parameter ("standard", "hd", "medium")
+/// 
+/// # Returns
+/// (image_config, clean_model_name) where image_config contains aspectRatio and optionally imageSize
+pub fn parse_image_config_with_params(
+    model_name: &str,
+    size: Option<&str>,
+    quality: Option<&str>
+) -> (Value, String) {
     let mut aspect_ratio = "1:1";
-    let _image_size = "1024x1024"; // Default, not explicitly sent unless 4k/hd
-
-    if model_name.contains("-21x9") || model_name.contains("-21-9") { aspect_ratio = "21:9"; }
-    else if model_name.contains("-16x9") || model_name.contains("-16-9") { aspect_ratio = "16:9"; }
-    else if model_name.contains("-9x16") || model_name.contains("-9-16") { aspect_ratio = "9:16"; }
-    else if model_name.contains("-4x3") || model_name.contains("-4-3") { aspect_ratio = "4:3"; }
-    else if model_name.contains("-3x4") || model_name.contains("-3-4") { aspect_ratio = "3:4"; }
-    else if model_name.contains("-1x1") || model_name.contains("-1-1") { aspect_ratio = "1:1"; }
-
-    let is_hd = model_name.contains("-4k") || model_name.contains("-hd");
-    let is_2k = model_name.contains("-2k");
+    
+    // 1. 优先从 size 参数解析宽高比
+    if let Some(s) = size {
+        aspect_ratio = calculate_aspect_ratio_from_size(s);
+    } else {
+        // 2. 回退到模型后缀解析（保持向后兼容）
+        if model_name.contains("-21x9") || model_name.contains("-21-9") { aspect_ratio = "21:9"; }
+        else if model_name.contains("-16x9") || model_name.contains("-16-9") { aspect_ratio = "16:9"; }
+        else if model_name.contains("-9x16") || model_name.contains("-9-16") { aspect_ratio = "9:16"; }
+        else if model_name.contains("-4x3") || model_name.contains("-4-3") { aspect_ratio = "4:3"; }
+        else if model_name.contains("-3x4") || model_name.contains("-3-4") { aspect_ratio = "3:4"; }
+        else if model_name.contains("-1x1") || model_name.contains("-1-1") { aspect_ratio = "1:1"; }
+    }
 
     let mut config = serde_json::Map::new();
     config.insert("aspectRatio".to_string(), json!(aspect_ratio));
     
-    if is_hd {
-        config.insert("imageSize".to_string(), json!("4K"));
-    } else if is_2k {
-        config.insert("imageSize".to_string(), json!("2K"));
+    // 3. 优先从 quality 参数解析分辨率
+    if let Some(q) = quality {
+        match q {
+            "hd" => { config.insert("imageSize".to_string(), json!("4K")); },
+            "medium" => { config.insert("imageSize".to_string(), json!("2K")); },
+            _ => {} // "standard" 或其他，不设置
+        }
+    } else {
+        // 4. 回退到模型后缀解析（保持向后兼容）
+        let is_hd = model_name.contains("-4k") || model_name.contains("-hd");
+        let is_2k = model_name.contains("-2k");
+        
+        if is_hd {
+            config.insert("imageSize".to_string(), json!("4K"));
+        } else if is_2k {
+            config.insert("imageSize".to_string(), json!("2K"));
+        }
     }
 
     // The upstream model must be EXACTLY "gemini-3-pro-image"
     (serde_json::Value::Object(config), "gemini-3-pro-image".to_string())
+}
+
+/// 动态计算宽高比（解决硬编码问题）
+/// 
+/// 从 "WIDTHxHEIGHT" 格式的字符串解析并计算宽高比，
+/// 使用容差匹配常见的标准比例。
+/// 
+/// # Arguments
+/// * `size` - 尺寸字符串，格式为 "WIDTHxHEIGHT" (e.g., "1280x720", "1792x1024")
+/// 
+/// # Returns
+/// 标准宽高比字符串 ("1:1", "16:9", "9:16", "4:3", "3:4", "21:9")
+fn calculate_aspect_ratio_from_size(size: &str) -> &'static str {
+    if let Some((w_str, h_str)) = size.split_once('x') {
+        if let (Ok(width), Ok(height)) = (w_str.parse::<f64>(), h_str.parse::<f64>()) {
+            if width > 0.0 && height > 0.0 {
+                let ratio = width / height;
+                
+                // 容差匹配常见比例（容差 0.1）
+                if (ratio - 21.0/9.0).abs() < 0.1 { return "21:9"; }
+                if (ratio - 16.0/9.0).abs() < 0.1 { return "16:9"; }
+                if (ratio - 4.0/3.0).abs() < 0.1 { return "4:3"; }
+                if (ratio - 3.0/4.0).abs() < 0.1 { return "3:4"; }
+                if (ratio - 9.0/16.0).abs() < 0.1 { return "9:16"; }
+                if (ratio - 1.0).abs() < 0.1 { return "1:1"; }
+            }
+        }
+    }
+    
+    "1:1" // 默认回退
 }
 
 /// Inject current googleSearch tool and ensure no duplicate legacy search tools
@@ -279,7 +352,7 @@ mod tests {
     #[test]
     fn test_high_quality_model_auto_grounding() {
         // Auto-grounding is currently disabled by default due to conflict with image gen
-        let config = resolve_request_config("gpt-4o", "gemini-2.5-flash", &None);
+        let config = resolve_request_config("gpt-4o", "gemini-2.5-flash", &None, None, None);
         assert_eq!(config.request_type, "agent");
         assert!(!config.inject_google_search);
     }
@@ -296,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_online_suffix_force_grounding() {
-        let config = resolve_request_config("gemini-3-flash-online", "gemini-3-flash", &None);
+        let config = resolve_request_config("gemini-3-flash-online", "gemini-3-flash", &None, None, None);
         assert_eq!(config.request_type, "web_search");
         assert!(config.inject_google_search);
         assert_eq!(config.final_model, "gemini-2.5-flash");
@@ -304,14 +377,14 @@ mod tests {
 
     #[test]
     fn test_default_no_grounding() {
-        let config = resolve_request_config("claude-sonnet", "gemini-3-flash", &None);
+        let config = resolve_request_config("claude-sonnet", "gemini-3-flash", &None, None, None);
         assert_eq!(config.request_type, "agent");
         assert!(!config.inject_google_search);
     }
 
     #[test]
     fn test_image_model_excluded() {
-        let config = resolve_request_config("gemini-3-pro-image", "gemini-3-pro-image", &None);
+        let config = resolve_request_config("gemini-3-pro-image", "gemini-3-pro-image", &None, None, None);
         assert_eq!(config.request_type, "image_gen");
         assert!(!config.inject_google_search);
     }
@@ -335,5 +408,63 @@ mod tests {
          let (config_4k_wide, _) = parse_image_config("gemini-3-pro-image-4k-21x9");
          assert_eq!(config_4k_wide["imageSize"], "4K");
          assert_eq!(config_4k_wide["aspectRatio"], "21:9");
+    }
+
+    #[test]
+    fn test_parse_image_config_with_openai_params() {
+        // Test quality parameter mapping
+        let (config_hd, _) = parse_image_config_with_params("gemini-3-pro-image", None, Some("hd"));
+        assert_eq!(config_hd["imageSize"], "4K");
+        assert_eq!(config_hd["aspectRatio"], "1:1");
+
+        let (config_medium, _) = parse_image_config_with_params("gemini-3-pro-image", None, Some("medium"));
+        assert_eq!(config_medium["imageSize"], "2K");
+
+        let (config_standard, _) = parse_image_config_with_params("gemini-3-pro-image", None, Some("standard"));
+        assert!(config_standard.get("imageSize").is_none());
+
+        // Test size parameter mapping with dynamic calculation
+        let (config_16_9, _) = parse_image_config_with_params("gemini-3-pro-image", Some("1280x720"), None);
+        assert_eq!(config_16_9["aspectRatio"], "16:9");
+
+        let (config_9_16, _) = parse_image_config_with_params("gemini-3-pro-image", Some("720x1280"), None);
+        assert_eq!(config_9_16["aspectRatio"], "9:16");
+
+        let (config_4_3, _) = parse_image_config_with_params("gemini-3-pro-image", Some("800x600"), None);
+        assert_eq!(config_4_3["aspectRatio"], "4:3");
+
+        // Test combined size + quality
+        let (config_combined, _) = parse_image_config_with_params("gemini-3-pro-image", Some("1920x1080"), Some("hd"));
+        assert_eq!(config_combined["aspectRatio"], "16:9");
+        assert_eq!(config_combined["imageSize"], "4K");
+
+        // Test backward compatibility: model suffix takes precedence when no params
+        let (config_compat, _) = parse_image_config_with_params("gemini-3-pro-image-16x9-4k", None, None);
+        assert_eq!(config_compat["aspectRatio"], "16:9");
+        assert_eq!(config_compat["imageSize"], "4K");
+
+        // Test parameter priority: params override model suffix
+        let (config_override, _) = parse_image_config_with_params("gemini-3-pro-image-1x1-2k", Some("1280x720"), Some("hd"));
+        assert_eq!(config_override["aspectRatio"], "16:9"); // from size param, not model suffix
+        assert_eq!(config_override["imageSize"], "4K"); // from quality param, not model suffix
+    }
+
+    #[test]
+    fn test_calculate_aspect_ratio_from_size() {
+        // Test standard OpenAI sizes
+        assert_eq!(calculate_aspect_ratio_from_size("1280x720"), "16:9");
+        assert_eq!(calculate_aspect_ratio_from_size("1920x1080"), "16:9");
+        assert_eq!(calculate_aspect_ratio_from_size("720x1280"), "9:16");
+        assert_eq!(calculate_aspect_ratio_from_size("1080x1920"), "9:16");
+        assert_eq!(calculate_aspect_ratio_from_size("1024x1024"), "1:1");
+        assert_eq!(calculate_aspect_ratio_from_size("800x600"), "4:3");
+        assert_eq!(calculate_aspect_ratio_from_size("600x800"), "3:4");
+        assert_eq!(calculate_aspect_ratio_from_size("2560x1080"), "21:9");
+
+        // Test edge cases
+        assert_eq!(calculate_aspect_ratio_from_size("invalid"), "1:1");
+        assert_eq!(calculate_aspect_ratio_from_size("1920x0"), "1:1");
+        assert_eq!(calculate_aspect_ratio_from_size("0x1080"), "1:1");
+        assert_eq!(calculate_aspect_ratio_from_size("abc x def"), "1:1");
     }
 }

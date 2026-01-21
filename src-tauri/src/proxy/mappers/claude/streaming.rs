@@ -3,6 +3,7 @@
 
 use super::models::*;
 use super::utils::to_claude_usage;
+use crate::proxy::mappers::estimation_calibrator::get_calibrator;
 // use crate::proxy::mappers::signature_store::store_thought_signature; // Deprecated
 use crate::proxy::SignatureCache;
 use bytes::Bytes;
@@ -231,6 +232,8 @@ pub struct StreamingState {
     // [NEW] MCP XML Bridge 缓冲区
     pub mcp_xml_buffer: String,
     pub in_mcp_xml: bool,
+    // [FIX] Estimated prompt tokens for calibrator learning
+    pub estimated_prompt_tokens: Option<u32>,
 }
 
 impl StreamingState {
@@ -254,6 +257,7 @@ impl StreamingState {
             context_limit: 1_048_576, // Default to 1M
             mcp_xml_buffer: String::new(),
             in_mcp_xml: false,
+            estimated_prompt_tokens: None,
         }
     }
 
@@ -459,7 +463,20 @@ impl StreamingState {
         };
 
         let usage = usage_metadata
-            .map(|u| to_claude_usage(u, self.scaling_enabled, self.context_limit))
+            .map(|u| {
+                // [FIX] Record actual token usage for calibrator learning
+                // Now properly pairs estimated tokens from request with actual tokens from response
+                if let (Some(estimated), Some(actual)) = (self.estimated_prompt_tokens, u.prompt_token_count) {
+                    if estimated > 0 && actual > 0 {
+                        get_calibrator().record(estimated, actual);
+                        tracing::debug!(
+                            "[Calibrator] Recorded: estimated={}, actual={}, ratio={:.2}x",
+                            estimated, actual, actual as f64 / estimated as f64
+                        );
+                    }
+                }
+                to_claude_usage(u, self.scaling_enabled, self.context_limit)
+            })
             .unwrap_or(Usage {
                 input_tokens: 0,
                 output_tokens: 0,

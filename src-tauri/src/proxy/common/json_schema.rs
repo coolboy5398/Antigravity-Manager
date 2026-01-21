@@ -102,6 +102,19 @@ fn clean_json_schema_recursive(value: &mut Value) -> bool {
                 }
             }
 
+            // 1.5. [FIX] 递归清理 anyOf/oneOf 数组中的每个分支
+            // 必须在合并逻辑之前执行，确保合并的分支已经被清洗
+            if let Some(Value::Array(any_of)) = map.get_mut("anyOf") {
+                for branch in any_of.iter_mut() {
+                    clean_json_schema_recursive(branch);
+                }
+            }
+            if let Some(Value::Array(one_of)) = map.get_mut("oneOf") {
+                for branch in one_of.iter_mut() {
+                    clean_json_schema_recursive(branch);
+                }
+            }
+
             // 2. [FIX #815] 处理 anyOf/oneOf 联合类型: 合并属性而非直接删除
             let mut union_to_merge = None;
             if map.get("type").is_none() || map.get("type").and_then(|t| t.as_str()) == Some("object") {
@@ -268,6 +281,13 @@ fn clean_json_schema_recursive(value: &mut Value) -> bool {
                 }
             }
         }
+        Value::Array(arr) => {
+            // [FIX] 递归清理数组中的每个元素
+            // 这确保了所有数组类型的值（包括但不限于 anyOf、oneOf、items、enum 等）都会被递归处理
+            for item in arr.iter_mut() {
+                clean_json_schema_recursive(item);
+            }
+        }
         _ => {}
     }
 
@@ -371,6 +391,101 @@ fn extract_best_schema_from_union(union_array: &Vec<Value>) -> Option<Value> {
     }
 
     best_option.cloned()
+}
+
+
+
+/// 修正工具调用参数的类型，使其符合 schema 定义
+///
+/// 根据 schema 中的 type 定义，自动转换参数值的类型：
+/// - "123" → 123 (string → number/integer)
+/// - "true" → true (string → boolean)
+/// - 123 → "123" (number → string)
+///
+/// # Arguments
+/// * `args` - 工具调用的参数对象 (会被原地修改)
+/// * `schema` - 工具的参数 schema 定义 (通常是 parameters 对象)
+pub fn fix_tool_call_args(args: &mut Value, schema: &Value) {
+    if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
+        if let Some(args_obj) = args.as_object_mut() {
+            for (key, value) in args_obj.iter_mut() {
+                if let Some(prop_schema) = properties.get(key) {
+                    fix_single_arg_recursive(value, prop_schema);
+                }
+            }
+        }
+    }
+}
+
+/// 递归修正单个参数的类型
+fn fix_single_arg_recursive(value: &mut Value, schema: &Value) {
+    // 1. 处理嵌套对象 (properties)
+    if let Some(nested_props) = schema.get("properties").and_then(|p| p.as_object()) {
+        if let Some(value_obj) = value.as_object_mut() {
+            for (key, nested_value) in value_obj.iter_mut() {
+                if let Some(nested_schema) = nested_props.get(key) {
+                    fix_single_arg_recursive(nested_value, nested_schema);
+                }
+            }
+        }
+        return;
+    }
+
+    // 2. 处理数组 (items)
+    let schema_type = schema.get("type").and_then(|t| t.as_str()).unwrap_or("").to_lowercase();
+    if schema_type == "array" {
+        if let Some(items_schema) = schema.get("items") {
+            if let Some(arr) = value.as_array_mut() {
+                for item in arr {
+                    fix_single_arg_recursive(item, items_schema);
+                }
+            }
+        }
+        return;
+    }
+
+    // 3. 处理基础类型修正
+    match schema_type.as_str() {
+        "number" | "integer" => {
+            // 字符串 → 数字
+            if let Some(s) = value.as_str() {
+                // [SAFETY] 保护具有前导零的版本号或代码 (如 "01", "007")，不应转为数字
+                if s.starts_with('0') && s.len() > 1 && !s.starts_with("0.") {
+                    return;
+                }
+                
+                // 优先尝试解析为整数
+                if let Ok(i) = s.parse::<i64>() {
+                    *value = Value::Number(serde_json::Number::from(i));
+                } else if let Ok(f) = s.parse::<f64>() {
+                    if let Some(n) = serde_json::Number::from_f64(f) {
+                        *value = Value::Number(n);
+                    }
+                }
+            }
+        }
+        "boolean" => {
+            // 字符串 → 布尔
+            if let Some(s) = value.as_str() {
+                match s.to_lowercase().as_str() {
+                    "true" | "1" | "yes" | "on" => *value = Value::Bool(true),
+                    "false" | "0" | "no" | "off" => *value = Value::Bool(false),
+                    _ => {}
+                }
+            } else if let Some(n) = value.as_i64() {
+                // 数字 1/0 -> 布尔
+                if n == 1 { *value = Value::Bool(true); }
+                else if n == 0 { *value = Value::Bool(false); }
+            }
+        }
+        "string" => {
+            // 非字符串 → 字符串 (防止客户端误传数字给文本字段)
+            if !value.is_string() && !value.is_null() && !value.is_object() && !value.is_array() {
+                *value = Value::String(value.to_string());
+            }
+        }
+        _ => {}
+    }
 }
 
 
@@ -666,4 +781,174 @@ mod tests {
         assert!(schema["description"].as_str().unwrap().contains("User name"));
         assert!(schema["description"].as_str().unwrap().contains("(nullable)"));
     }
-}
+
+    // [NEW TEST] 验证 anyOf 内部的 propertyNames 被移除
+    #[test]
+    fn test_clean_anyof_with_propertynames() {
+        let mut schema = json!({
+            "properties": {
+                "config": {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "propertyNames": {"pattern": "^[a-z]+$"},
+                            "properties": {
+                                "key": {"type": "string"}
+                            }
+                        },
+                        {"type": "null"}
+                    ]
+                }
+            }
+        });
+
+        clean_json_schema(&mut schema);
+
+        // 验证 anyOf 被移除（已被合并）
+        let config = &schema["properties"]["config"];
+        assert!(config.get("anyOf").is_none());
+        
+        // 验证 propertyNames 被移除
+        assert!(config.get("propertyNames").is_none());
+        
+        // 验证合并后的 properties 存在且没有 propertyNames
+        assert!(config.get("properties").is_some());
+        assert_eq!(config["properties"]["key"]["type"], "string");
+    }
+
+    // [NEW TEST] 验证 items 数组中的 const 被移除
+    #[test]
+    fn test_clean_items_array_with_const() {
+        let mut schema = json!({
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "const": "active",
+                        "type": "string"
+                    }
+                }
+            }
+        });
+
+        clean_json_schema(&mut schema);
+
+        // 验证 const 被移除
+        let status = &schema["items"]["properties"]["status"];
+        assert!(status.get("const").is_none());
+        
+        // 验证 type 仍然存在
+        assert_eq!(status["type"], "string");
+    }
+
+    // [NEW TEST] 验证多层嵌套数组的清理
+    #[test]
+    fn test_deep_nested_array_cleaning() {
+        let mut schema = json!({
+            "properties": {
+                "data": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "propertyNames": {"maxLength": 10},
+                                        "const": "test",
+                                        "properties": {
+                                            "name": {"type": "string"}
+                                        }
+                                    },
+                                    {"type": "null"}
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        });
+
+        clean_json_schema(&mut schema);
+
+        // 验证深层嵌套的非法字段都被移除
+        let data = &schema["properties"]["data"];
+        
+        // anyOf 应该被合并移除
+        assert!(data.get("anyOf").is_none());
+        
+        // 验证没有 propertyNames 和 const 逃逸到顶层
+        assert!(data.get("propertyNames").is_none());
+        assert!(data.get("const").is_none());
+        
+        // 验证结构被正确保留
+        assert_eq!(data["type"], "array");
+        if let Some(items) = data.get("items") {
+            // items 内部的 anyOf 也应该被合并
+             assert!(items.get("anyOf").is_none());
+             assert!(items.get("propertyNames").is_none());
+             assert!(items.get("const").is_none());
+         }
+     }
+ 
+     #[test]
+     fn test_fix_tool_call_args() {
+         let mut args = serde_json::json!({
+             "port": "8080",
+             "enabled": "true",
+             "timeout": "5.5",
+             "metadata": {
+                 "retry": "3"
+             },
+             "tags": ["1", "2"]
+         });
+ 
+         let schema = serde_json::json!({
+             "properties": {
+                 "port": { "type": "integer" },
+                 "enabled": { "type": "boolean" },
+                 "timeout": { "type": "number" },
+                 "metadata": {
+                     "type": "object",
+                     "properties": {
+                         "retry": { "type": "integer" }
+                     }
+                 },
+                 "tags": {
+                     "type": "array",
+                     "items": { "type": "integer" }
+                 }
+             }
+         });
+ 
+         fix_tool_call_args(&mut args, &schema);
+ 
+         assert_eq!(args["port"], 8080);
+         assert_eq!(args["enabled"], true);
+         assert_eq!(args["timeout"], 5.5);
+         assert_eq!(args["metadata"]["retry"], 3);
+         assert_eq!(args["tags"], serde_json::json!([1, 2]));
+     }
+ 
+     #[test]
+     fn test_fix_tool_call_args_protection() {
+         let mut args = serde_json::json!({
+             "version": "01.0",
+             "code": "007"
+         });
+ 
+         let schema = serde_json::json!({
+             "properties": {
+                 "version": { "type": "number" },
+                 "code": { "type": "integer" }
+             }
+         });
+ 
+         fix_tool_call_args(&mut args, &schema);
+ 
+         // 应保留字符串以防破坏语义
+         assert_eq!(args["version"], "01.0");
+         assert_eq!(args["code"], "007");
+     }
+ }
