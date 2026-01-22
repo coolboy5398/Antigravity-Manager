@@ -2,18 +2,6 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Token usage statistics record
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TokenUsageRecord {
-    pub id: i64,
-    pub timestamp: i64,
-    pub account_email: String,
-    pub model: String,
-    pub input_tokens: u32,
-    pub output_tokens: u32,
-    pub total_tokens: u32,
-}
-
 /// Aggregated token statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenStatsAggregated {
@@ -362,30 +350,6 @@ pub fn get_summary_stats(hours: i64) -> Result<TokenStatsSummary, String> {
     })
 }
 
-/// Clean up old data (keep last N days of raw data)
-pub fn cleanup_old_data(days: i64) -> Result<usize, String> {
-    let conn = connect_db()?;
-    let cutoff = chrono::Utc::now().timestamp() - (days * 24 * 3600);
-
-    let deleted = conn
-        .execute("DELETE FROM token_usage WHERE timestamp < ?1", [cutoff])
-        .map_err(|e| e.to_string())?;
-
-    // Keep hourly aggregations for longer (90 days)
-    let cutoff_bucket = (chrono::Utc::now() - chrono::Duration::days(90))
-        .format("%Y-%m-%d %H:00")
-        .to_string();
-    conn.execute(
-        "DELETE FROM token_stats_hourly WHERE hour_bucket < ?1",
-        [cutoff_bucket],
-    )
-    .map_err(|e| e.to_string())?;
-
-    conn.execute("VACUUM", []).map_err(|e| e.to_string())?;
-
-    Ok(deleted)
-}
-
 pub fn get_model_stats(hours: i64) -> Result<Vec<ModelTokenStats>, String> {
     let conn = connect_db()?;
     let cutoff = chrono::Utc::now().timestamp() - (hours * 3600);
@@ -539,7 +503,10 @@ pub fn get_account_trend_hourly(hours: i64) -> Result<Vec<AccountTrendPoint>, St
 
     Ok(trend_map
         .into_iter()
-        .map(|(period, account_data)| AccountTrendPoint { period, account_data })
+        .map(|(period, account_data)| AccountTrendPoint {
+            period,
+            account_data,
+        })
         .collect())
 }
 
@@ -579,7 +546,10 @@ pub fn get_account_trend_daily(days: i64) -> Result<Vec<AccountTrendPoint>, Stri
 
     Ok(trend_map
         .into_iter()
-        .map(|(period, account_data)| AccountTrendPoint { period, account_data })
+        .map(|(period, account_data)| AccountTrendPoint {
+            period,
+            account_data,
+        })
         .collect())
 }
 

@@ -106,11 +106,6 @@ impl CloudflaredManager {
         }
     }
 
-    /// 获取二进制文件路径
-    pub fn bin_path(&self) -> &PathBuf {
-        &self.bin_path
-    }
-
     /// 检查是否已安装
     pub async fn check_installed(&self) -> (bool, Option<String>) {
         if !self.bin_path.exists() {
@@ -369,11 +364,6 @@ impl CloudflaredManager {
         }).await;
 
         Ok(self.get_status().await)
-    }
-
-    /// 清理资源
-    pub async fn cleanup(&self) {
-        let _ = self.stop().await;
     }
 }
 

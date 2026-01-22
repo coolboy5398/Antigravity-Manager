@@ -782,7 +782,9 @@
             "gemini": "Gemini",
             "claude": "Claude",
             "images": "繪圖",
-            "reset": "重置"
+            "reset": "重置",
+            "by_account": "按帳號篩選",
+            "all_accounts": "全部帳號"
         },
         "table": {
             "status": "狀態",

@@ -43,8 +43,10 @@ impl EstimationCalibrator {
             return;
         }
 
-        self.total_estimated.fetch_add(estimated as u64, Ordering::Relaxed);
-        self.total_actual.fetch_add(actual as u64, Ordering::Relaxed);
+        self.total_estimated
+            .fetch_add(estimated as u64, Ordering::Relaxed);
+        self.total_actual
+            .fetch_add(actual as u64, Ordering::Relaxed);
         let count = self.sample_count.fetch_add(1, Ordering::Relaxed) + 1;
 
         // Update calibration factor every 5 requests
@@ -86,28 +88,14 @@ impl EstimationCalibrator {
     ///
     /// Multiplies the raw estimate by the current calibration factor.
     pub fn calibrate(&self, estimated: u32) -> u32 {
-        let factor = self.calibration_factor.read()
-            .map(|f| *f)
-            .unwrap_or(2.0);
+        let factor = self.calibration_factor.read().map(|f| *f).unwrap_or(2.0);
 
         (estimated as f32 * factor).ceil() as u32
     }
 
     /// Get the current calibration factor
     pub fn get_factor(&self) -> f32 {
-        self.calibration_factor.read()
-            .map(|f| *f)
-            .unwrap_or(2.0)
-    }
-
-    /// Get statistics for debugging
-    pub fn get_stats(&self) -> (u64, u64, u64, f32) {
-        (
-            self.total_estimated.load(Ordering::Relaxed),
-            self.total_actual.load(Ordering::Relaxed),
-            self.sample_count.load(Ordering::Relaxed),
-            self.get_factor(),
-        )
+        self.calibration_factor.read().map(|f| *f).unwrap_or(2.0)
     }
 }
 

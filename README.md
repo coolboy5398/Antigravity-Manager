@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> 专业的 AI 账号管理与协议反代系统 (v3.3.48)
+> 专业的 AI 账号管理与协议反代系统 (v3.3.49)
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
 
@@ -8,7 +8,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-3.3.48-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-3.3.49-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -324,6 +324,46 @@ response = client.chat.completions.create(
 ## 📝 开发者与社区
 
 *   **版本演进 (Changelog)**:
+    *   **v3.3.49 (2026-01-22)**:
+        -   **[性能优化] 设置项即时生效 (Fix PR #949)**:
+            -   **即时生效**: 修复了语言切换需要手动点击保存的问题。现在修改语言设置会立即应用到整个 UI。
+        -   **[代码清理] 后端架构重构与优化 (PR #950)**:
+            -   **架构精简**: 深度重构了代理层的 Mapper 和 Handler 逻辑，移除了冗余模块（如 `openai/collector.rs`），显著提升了代码的可维护性。
+            -   **稳定性增强**: 优化了 OpenAI 与 Claude 协议的转换链路，统一了图片配置解析逻辑，并加固了上下文管理器的健壮性。
+        -   **[核心修复] 设置项同步策略更新**:
+            -   **状态同步**: 修正了主题切换的即时应用逻辑，并解决了 `App.tsx` 与 `Settings.tsx` 之间的状态冲突，确保配置加载过程中的 UI 一致性。
+        -   **[核心优化] 上下文压缩与 Token 节省**:
+            -   **由于 Claude CLI 在恢复历史记录时会发送大量上下文，现已将压缩阈值改为可配置并降低默认值。**
+            -   **L3 摘要重置阈值由 90% 降至 70%，在 token 堆积过多前提前进行压缩节省额度。**
+            -   **前端 UI 增强：在实验性设置中新增 L1/L2/L3 压缩阈值滑块，支持动态自定义。**
+        -   **[功能增强] API 监控看板功能升级 (PR #951)**:
+            -   **账号筛选**: 新增按账号筛选流量日志的功能，支持在大流量环境下精准追踪特定账号的调用情况。
+            -   **详情深度增强**: 监控详情页现在可以完整显示请求协议（OpenAI/Anthropic/Gemini）、使用账号、映射后的物理模型等关键元数据。
+            -   **UI 与国际化**: 优化了监控详情的布局，并补全了 8 种语言的相关翻译。
+        -   **[JSON Schema 优化] 递归收集 $defs 并完善回退处理 (PR #953)**:
+            -   **递归收集**: 添加了 `collect_all_defs()` 以递归方式从所有模式层级收集 `$defs`/`definitions`，解决了嵌套定义丢失的问题。
+            -   **引用平坦化**: 始终运行 `flatten_refs()` 以捕获并处理孤立的 `$ref` 字段。
+            -   **回退机制**: 为未解析的 `$ref` 添加了回退逻辑，将其转换为带有描述性提示的字符串类型。
+            -   **稳定性增强**: 新增了针对嵌套定义和未解析引用的测试用例，确保 Schema 处理的健壮性。
+        -   **[核心修复] 账号索引保护 (Fix Issue #929)**:
+            -   **安全加固**: 移除了加载失败时的自动删除逻辑，防止在升级或环境异常时意外丢失账号索引，确保用户数据安全。
+        -   **[核心优化] 路由器与模型映射深度优化 (PR #954)**:
+            -   **路由器确定性优先级**: 修复了路由器在处理多通配符模式时的不确定性问题，实现了基于模式长度和复杂度的确定性匹配优先级。
+            -   **Claude/OpenAI 映射器增强**: 深度重构了流式传输处理器（Streaming Processor）和响应收集器（Collector），解决了由于上下文压缩导致的思维链（Thinking）签名丢失问题。
+            -   **上下文估算校准**: 优化了 `EstimationCalibrator` 算法，提升了在长上下文场景下的 Token 估算准确度。
+            -   **JSON Schema 清理升级**: 增强了对复杂 JSON Schema 的深度清理能力，确保工具定义 100% 兼容上游 API。
+            -   **多语言本地化同步**: 同步更新了中、英、日、葡、俄、土、越、繁中 8 种语言的本地化资源。
+
+        -   **[稳定性增强] OAuth 回调与解析优化 (Fix #931, #850, #778)**:
+            -   **鲁棒解析**: 优化了本地回调服务器的 URL 解析逻辑，不再依赖单一分割符，提升了不同浏览器下的兼容性。
+            -   **调试增强**: 增加了原始请求 (Raw Request) 记录功能，当授权失败时可直接在日志中查看原始数据，方便定位网络拦截问题。
+        -   **[网络优化] OAuth 通信质量提升 (Issue #948, #887)**:
+            -   **延时保障**: 将授权请求超时时间延长至 60 秒，大幅提升了在代理环境下的 Token 交换成功率。
+            -   **错误指引**: 针对 Google API 连接超时或重置的情况，新增了明确的中文代理设置建议，降低排查门槛。
+            -   **[核心修复] 移除 Flash Lite 模型以修复 429 错误 (Fix 429 Errors)**:
+                -   **问题背景**: 今日监测发现 `gemini-2.5-flash-lite` 频繁出现 429 错误，具体原因为 **上游 Google 容器容量耗尽 (MODEL_CAPACITY_EXHAUSTED)**，而非通常的账号配额不足。
+                -   **紧急修复**: 将所有系统内部默认的 `gemini-2.5-flash-lite` 调用（如后台标题生成、L3 摘要压缩）及预设映射全部替换为更稳定的 `gemini-2.5-flash`。
+                -   **用户提醒**: 如果您在“自定义映射”或“预设”中手动使用了 `gemini-2.5-flash-lite`，请务必修改为其他模型，否则可能会持续遇到 429 错误。
     *   **v3.3.48 (2026-01-21)**:
         -   **[核心修复] Windows 控制台闪烁问题 (Fix PR #933)**:
             -   **问题背景**: Windows 平台在启动或执行后台命令时，偶尔会弹出短暂的 CMD 窗口，影响用户体验。

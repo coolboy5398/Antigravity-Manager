@@ -1,13 +1,13 @@
 // OpenAI 流式转换
 use bytes::{Bytes, BytesMut};
+use chrono::Utc;
 use futures::{Stream, StreamExt};
+use rand::Rng;
 use serde_json::{json, Value};
 use std::pin::Pin;
 use std::sync::{Mutex, OnceLock};
-use chrono::Utc;
-use uuid::Uuid;
 use tracing::debug;
-use rand::Rng;
+use uuid::Uuid;
 
 // === 全局 ThoughtSignature 存储 ===
 // 用于在流式响应和后续请求之间传递签名，避免嵌入到用户可见的文本中
@@ -22,19 +22,21 @@ fn get_thought_sig_storage() -> &'static Mutex<Option<String>> {
 pub fn store_thought_signature(sig: &str) {
     if let Ok(mut guard) = get_thought_sig_storage().lock() {
         let should_store = match &*guard {
-            None => true, // 没有签名，直接存储
+            None => true,                                 // 没有签名，直接存储
             Some(existing) => sig.len() > existing.len(), // 只有新签名更长才存储
         };
-        
+
         if should_store {
-            tracing::debug!("[ThoughtSig] 存储新签名 (长度: {}，替换旧长度: {:?})", 
-                sig.len(), 
+            tracing::debug!(
+                "[ThoughtSig] 存储新签名 (长度: {}，替换旧长度: {:?})",
+                sig.len(),
                 guard.as_ref().map(|s| s.len())
             );
             *guard = Some(sig.to_string());
         } else {
-            tracing::debug!("[ThoughtSig] 跳过短签名 (新长度: {}，现有长度: {})", 
-                sig.len(), 
+            tracing::debug!(
+                "[ThoughtSig] 跳过短签名 (新长度: {}，现有长度: {})",
+                sig.len(),
                 guard.as_ref().map(|s| s.len()).unwrap_or(0)
             );
         }
@@ -54,7 +56,7 @@ pub fn get_thought_signature() -> Option<String> {
 /// Extract and convert Gemini usageMetadata to OpenAI usage format
 fn extract_usage_metadata(u: &Value) -> Option<super::models::OpenAIUsage> {
     use super::models::{OpenAIUsage, PromptTokensDetails};
-    
+
     let prompt_tokens = u
         .get("promptTokenCount")
         .and_then(|v| v.as_u64())
@@ -88,20 +90,20 @@ pub fn create_openai_sse_stream(
     model: String,
 ) -> Pin<Box<dyn Stream<Item = Result<Bytes, String>> + Send>> {
     let mut buffer = BytesMut::new();
-    
+
     // 在流开始时生成固定的 ID 和 timestamp，所有 chunk 共用
     let stream_id = format!("chatcmpl-{}", Uuid::new_v4());
     let created_ts = Utc::now().timestamp();
-    
+
     let stream = async_stream::stream! {
         let mut emitted_tool_calls = std::collections::HashSet::new();
         let mut final_usage: Option<super::models::OpenAIUsage> = None;
         let mut error_occurred = false;  // [FIX] 标志位,避免双重 [DONE]
-        
+
         // [P2 FIX] 添加心跳定时器
         let mut heartbeat_interval = tokio::time::interval(std::time::Duration::from_secs(15));
         heartbeat_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        
+
         loop {
             tokio::select! {
                 // 处理上游数据
@@ -111,7 +113,7 @@ pub fn create_openai_sse_stream(
                     // Verbose logging for debugging image fragmentation
                     debug!("[OpenAI-SSE] Received chunk: {} bytes", bytes.len());
                     buffer.extend_from_slice(&bytes);
-                    
+
                     // Process complete lines from buffer
                     while let Some(pos) = buffer.iter().position(|&b| b == b'\n') {
                         let line_raw = buffer.split_to(pos + 1);
@@ -148,13 +150,13 @@ pub fn create_openai_sse_stream(
 
                                             let mut content_out = String::new();
                                             let mut thought_out = String::new();
-                                            
+
                                             if let Some(parts_list) = parts {
                                                 for part in parts_list {
                                                     let is_thought_part = part.get("thought")
                                                         .and_then(|v| v.as_bool())
                                                         .unwrap_or(false);
-                                                    
+
                                                     if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
                                                         if is_thought_part {
                                                             thought_out.push_str(text);
@@ -180,16 +182,16 @@ pub fn create_openai_sse_stream(
                                                         let call_key = serde_json::to_string(func_call).unwrap_or_default();
                                                         if !emitted_tool_calls.contains(&call_key) {
                                                             emitted_tool_calls.insert(call_key);
-                                                            
+
                                                             let name = func_call.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
                                                             let args = func_call.get("args").unwrap_or(&json!({})).to_string();
-                                                            
+
                                                             // Generate stable ID
                                                             let mut hasher = std::collections::hash_map::DefaultHasher::new();
                                                             use std::hash::{Hash, Hasher};
                                                             serde_json::to_string(func_call).unwrap_or_default().hash(&mut hasher);
                                                             let call_id = format!("call_{:x}", hasher.finish());
-                                                            
+
                                                             // Emit tool_calls delta
                                                             let tool_call_chunk = json!({
                                                                 "id": &stream_id,
@@ -213,7 +215,7 @@ pub fn create_openai_sse_stream(
                                                                     "finish_reason": serde_json::Value::Null
                                                                 }]
                                                             });
-                                                            
+
                                                             let sse_out = format!("data: {}\n\n", serde_json::to_string(&tool_call_chunk).unwrap_or_default());
                                                             yield Ok::<Bytes, String>(Bytes::from(sse_out));
                                                         }
@@ -225,7 +227,7 @@ pub fn create_openai_sse_stream(
                                             // 处理联网搜索引文 (Grounding Metadata) - 流式
                                             if let Some(grounding) = candidate.get("groundingMetadata") {
                                                 let mut grounding_text = String::new();
-                                                
+
                                                 // 1. 处理搜索词
                                                 if let Some(queries) = grounding.get("webSearchQueries").and_then(|q| q.as_array()) {
                                                     let query_list: Vec<&str> = queries.iter().filter_map(|v| v.as_str()).collect();
@@ -250,7 +252,7 @@ pub fn create_openai_sse_stream(
                                                         grounding_text.push_str(&links.join("\n"));
                                                     }
                                                 }
-                                                
+
                                                 if !grounding_text.is_empty() {
                                                     content_out.push_str(&grounding_text);
                                                 }
@@ -263,7 +265,7 @@ pub fn create_openai_sse_stream(
                                                     continue;
                                                 }
                                             }
-                                                
+
                                             // Extract finish reason
                                             let finish_reason = candidate.get("finishReason")
                                                 .and_then(|f| f.as_str())
@@ -316,12 +318,12 @@ pub fn create_openai_sse_stream(
                                                         }
                                                     ]
                                                 });
-                                                
+
                                                 // [FIX] 将 usage 嵌入到 chunk 中
                                                 if let Some(ref usage) = final_usage {
                                                     openai_chunk["usage"] = serde_json::to_value(usage).unwrap();
                                                 }
-                                                
+
                                                 // [FIX] 如果是最后一个 chunk,标记 usage 已发送
                                                 if finish_reason.is_some() {
                                                     final_usage = None;
@@ -340,7 +342,7 @@ pub fn create_openai_sse_stream(
                         Some(Err(e)) => {
                             use crate::proxy::mappers::error_classifier::classify_stream_error;
                             let (error_type, user_message, i18n_key) = classify_stream_error(&e);
-                            
+
                             tracing::error!(
                                 error_type = %error_type,
                                 user_message = %user_message,
@@ -348,7 +350,7 @@ pub fn create_openai_sse_stream(
                                 raw_error = %e,
                                 "OpenAI stream error occurred"
                             );
-                            
+
                             // 发送友好的 SSE 错误事件(包含 i18n_key 供前端翻译)
                             let error_chunk = json!({
                                 "id": &stream_id,
@@ -363,7 +365,7 @@ pub fn create_openai_sse_stream(
                                     "i18n_key": i18n_key
                                 }
                             });
-                            
+
                             let sse_out = format!("data: {}\n\n", serde_json::to_string(&error_chunk).unwrap_or_default());
                             yield Ok(Bytes::from(sse_out));
                             yield Ok(Bytes::from("data: [DONE]\n\n"));
@@ -376,7 +378,7 @@ pub fn create_openai_sse_stream(
                         }
                     }
                 }
-                
+
                 // [P2 FIX] 发送心跳
                 _ = heartbeat_interval.tick() => {
                     // 发送 SSE 注释作为心跳
@@ -384,7 +386,7 @@ pub fn create_openai_sse_stream(
                 }
             }
         }
-        
+
         // [FIX] 只有在没有错误时才发送 [DONE]
         // usage 已经嵌入到 finish_reason chunk,不需要单独发送
         if !error_occurred {
@@ -400,7 +402,7 @@ pub fn create_legacy_sse_stream(
     model: String,
 ) -> Pin<Box<dyn Stream<Item = Result<Bytes, String>> + Send>> {
     let mut buffer = BytesMut::new();
-    
+
     // Generate constant alphanumeric ID (mimics OpenAI base62 format)
     let charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let mut rng = rand::thread_rng();
@@ -411,16 +413,16 @@ pub fn create_legacy_sse_stream(
         })
         .collect();
     let stream_id = format!("cmpl-{}", random_str);
-    let created_ts = Utc::now().timestamp(); 
-    
+    let created_ts = Utc::now().timestamp();
+
     let stream = async_stream::stream! {
         let mut final_usage: Option<super::models::OpenAIUsage> = None;
         let mut error_occurred = false;  // [FIX] 标志位,避免双重 [DONE]
-        
+
         // [P2 FIX] 添加心跳定时器
         let mut heartbeat_interval = tokio::time::interval(std::time::Duration::from_secs(15));
         heartbeat_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        
+
         loop {
             tokio::select! {
                 // 处理上游数据
@@ -440,12 +442,12 @@ pub fn create_legacy_sse_stream(
 
                                 if let Ok(mut json) = serde_json::from_str::<Value>(json_part) {
                                     let actual_data = if let Some(inner) = json.get_mut("response").map(|v| v.take()) { inner } else { json };
-                                    
+
                                     // Capture usageMetadata if present
                                     if let Some(u) = actual_data.get("usageMetadata") {
                                         final_usage = extract_usage_metadata(u);
                                     }
-                                    
+
                                     let mut content_out = String::new();
                                     if let Some(candidates) = actual_data.get("candidates").and_then(|c| c.as_array()) {
                                         if let Some(parts) = candidates.get(0).and_then(|c| c.get("content")).and_then(|c| c.get("parts")).and_then(|p| p.as_array()) {
@@ -494,19 +496,19 @@ pub fn create_legacy_sse_stream(
                                             }
                                         ]
                                     });
-                                    
+
                                     // [FIX] 将 usage 嵌入到 chunk 中
                                     if let Some(ref usage) = final_usage {
                                         legacy_chunk["usage"] = serde_json::to_value(usage).unwrap();
                                     }
-                                    
+
                                     // [FIX] 如果是最后一个 chunk,标记 usage 已发送
                                     if finish_reason.is_some() {
                                         final_usage = None;
                                     }
 
                                     let json_str = serde_json::to_string(&legacy_chunk).unwrap_or_default();
-                                    tracing::debug!("Legacy Stream Chunk: {}", json_str); 
+                                    tracing::debug!("Legacy Stream Chunk: {}", json_str);
                                     let sse_out = format!("data: {}\n\n", json_str);
                                     yield Ok::<Bytes, String>(Bytes::from(sse_out));
                                 }
@@ -517,7 +519,7 @@ pub fn create_legacy_sse_stream(
                         Some(Err(e)) => {
                             use crate::proxy::mappers::error_classifier::classify_stream_error;
                             let (error_type, user_message, i18n_key) = classify_stream_error(&e);
-                            
+
                             tracing::error!(
                                 error_type = %error_type,
                                 user_message = %user_message,
@@ -525,7 +527,7 @@ pub fn create_legacy_sse_stream(
                                 raw_error = %e,
                                 "Legacy stream error occurred"
                             );
-                            
+
                             // 发送友好的 SSE 错误事件(包含 i18n_key 供前端翻译)
                             let error_chunk = json!({
                                 "id": &stream_id,
@@ -540,7 +542,7 @@ pub fn create_legacy_sse_stream(
                                     "i18n_key": i18n_key
                                 }
                             });
-                            
+
                             let sse_out = format!("data: {}\n\n", serde_json::to_string(&error_chunk).unwrap_or_default());
                             yield Ok(Bytes::from(sse_out));
                             yield Ok(Bytes::from("data: [DONE]\n\n"));
@@ -553,7 +555,7 @@ pub fn create_legacy_sse_stream(
                         }
                     }
                 }
-                
+
                 // [P2 FIX] 发送心跳
                 _ = heartbeat_interval.tick() => {
                     // 发送 SSE 注释作为心跳
@@ -561,7 +563,7 @@ pub fn create_legacy_sse_stream(
                 }
             }
         }
-        
+
         // [FIX] 只有在没有错误时才发送 [DONE]
         // usage 已经嵌入到 finish_reason chunk,不需要单独发送
         if !error_occurred {
@@ -580,7 +582,7 @@ pub fn create_codex_sse_stream(
     _model: String,
 ) -> Pin<Box<dyn Stream<Item = Result<Bytes, String>> + Send>> {
     let mut buffer = BytesMut::new();
-    
+
     // Generate alphanumeric ID
     let charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let mut rng = rand::thread_rng();
@@ -591,7 +593,7 @@ pub fn create_codex_sse_stream(
         })
         .collect();
     let response_id = format!("resp-{}", random_str);
-    
+
     let stream = async_stream::stream! {
         // 1. Emit response.created
         let created_ev = json!({
@@ -629,18 +631,18 @@ pub fn create_codex_sse_stream(
                                 if let Ok(line_str) = std::str::from_utf8(&line_raw) {
                                     let line = line_str.trim();
                                     if line.is_empty() || !line.starts_with("data: ") { continue; }
-                                    
+
                                     let json_part = line.trim_start_matches("data: ").trim();
                                     if json_part == "[DONE]" { continue; }
 
                                     if let Ok(mut json) = serde_json::from_str::<Value>(json_part) {
                                         let actual_data = if let Some(inner) = json.get_mut("response").map(|v| v.take()) { inner } else { json };
-                                        
+
                                         // Capture usageMetadata if present
                                         if let Some(u) = actual_data.get("usageMetadata") {
                                             accumulated_usage = extract_usage_metadata(u);
                                         }
-                                        
+
                                         // Capture finish reason
                                         if let Some(candidates) = actual_data.get("candidates").and_then(|c| c.as_array()) {
                                             if let Some(candidate) = candidates.get(0) {
@@ -664,13 +666,13 @@ pub fn create_codex_sse_stream(
                                                             let clean_text = text.replace('“', "\"").replace('”', "\"");
                                                             delta_text.push_str(&clean_text);
                                                         }
-                                                        
+
                                                         // 捕获 thoughtSignature
                                                         if let Some(sig) = part.get("thoughtSignature").or(part.get("thought_signature")).and_then(|s| s.as_str()) {
                                                             tracing::debug!("[Codex-SSE] 捕获 thoughtSignature (长度: {})", sig.len());
                                                             store_thought_signature(sig);
                                                         }
-                                                        
+
                                                         // Handle function call in chunk with deduplication
                                                         if let Some(func_call) = part.get("functionCall") {
                                                             let call_key = serde_json::to_string(func_call).unwrap_or_default();
@@ -679,7 +681,7 @@ pub fn create_codex_sse_stream(
 
                                                                 let name = func_call.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");
                                                                 let name_str = name.to_string();
-                                                                
+
                                                                 let fallback_args = json!({});
                                                                 let args_obj = func_call.get("args").unwrap_or(&fallback_args);
                                                                 let args_str = args_obj.to_string();
@@ -690,7 +692,7 @@ pub fn create_codex_sse_stream(
                                                                 name_str.hash(&mut hasher);
                                                                 args_str.hash(&mut hasher);
                                                                 let call_id = format!("call_{:x}", hasher.finish());
-                                                                
+
                                                                 // Determine event type based on tool name
                                                                 let maybe_item_added_ev: Option<Value> = if name_str == "shell" || name_str == "local_shell" {
                                                                     // Map to local_shell_call
@@ -707,7 +709,7 @@ pub fn create_codex_sse_stream(
                                                                     } else {
                                                                         vec!["powershell.exe".to_string(), "-Command".to_string(), "exit 0".to_string()]
                                                                     };
-                                                                    
+
                                                                     Some(json!({
                                                                         "type": "response.output_item.added",
                                                                         "item": {
@@ -750,7 +752,7 @@ pub fn create_codex_sse_stream(
 
                                                                 if let Some(item_added_ev) = maybe_item_added_ev {
                                                                     yield Ok::<Bytes, String>(Bytes::from(format!("data: {}\n\n", serde_json::to_string(&item_added_ev).unwrap())));
-                                                                    
+
                                                                     // Emit response.output_item.done
                                                                     let mut item_done_ev = item_added_ev.clone();
                                                                     if let Some(obj) = item_done_ev.as_object_mut() {

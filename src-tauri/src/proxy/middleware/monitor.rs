@@ -18,7 +18,7 @@ pub async fn monitor_middleware(
     request: Request,
     next: Next,
 ) -> Response {
-    let logging_enabled = state.monitor.is_enabled();
+    let _logging_enabled = state.monitor.is_enabled();
     
     let method = request.method().to_string();
     let uri = request.uri().to_string();
