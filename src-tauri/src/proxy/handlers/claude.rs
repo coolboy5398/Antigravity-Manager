@@ -27,9 +27,8 @@ use std::sync::{atomic::Ordering, Arc};
 const MAX_RETRY_ATTEMPTS: usize = 3;
 
 // ===== Model Constants for Background Tasks =====
-// These can be adjusted for performance/cost optimization
-const BACKGROUND_MODEL_LITE: &str = "gemini-2.5-flash";  // For simple/lightweight tasks
-const BACKGROUND_MODEL_STANDARD: &str = "gemini-2.5-flash";   // For complex background tasks
+// These can be adjusted for performance/cost optimization or overridden by custom_mapping
+const INTERNAL_BACKGROUND_TASK: &str = "internal-background-task";  // Unified virtual ID for all background tasks
 
 // ===== Layer 3: XML Summary Prompt Template =====
 // Borrowed from Practical-Guide-to-Context-Engineering + Claude Code official practice
@@ -554,18 +553,27 @@ pub async fn handle_messages(
 
         if let Some(task_type) = background_task_type {
             // 检测到后台任务,强制降级到 Flash 模型
-            let downgrade_model = select_background_model(task_type);
+            let virtual_model_id = select_background_model(task_type);
             
+            // [FIX] 必须根据虚拟 ID Re-resolve 路由，以支持用户自定义映射 (如 internal-task -> gemini-3)
+            // 否则会直接使用 generic ID 导致下游无法识别或只能使用静态默认值
+            let resolved_model = crate::proxy::common::model_mapping::resolve_model_route(
+                virtual_model_id, 
+                &*state.custom_mapping.read().await
+            );
+
             info!(
-                "[{}][AUTO] 检测到后台任务 (类型: {:?}),强制降级: {} -> {}",
+                "[{}][AUTO] 检测到后台任务 (类型: {:?}), 路由重定向: {} -> {} (最终物理模型: {})",
                 trace_id,
                 task_type,
                 mapped_model,
-                downgrade_model
+                virtual_model_id,
+                resolved_model
             );
             
-            // 覆盖用户自定义映射
-            mapped_model = downgrade_model.to_string();
+            // 覆盖用户自定义映射 (同时更新变量和 Request 对象)
+            mapped_model = resolved_model.clone();
+            request_with_mapped.model = resolved_model;
             
             // 后台任务净化：
             // 1. 移除工具定义（后台任务不需要工具）
@@ -575,14 +583,11 @@ pub async fn handle_messages(
             request_with_mapped.thinking = None;
             
             // 3. 清理历史消息中的 Thinking Block，防止 Invalid Argument
-            for msg in request_with_mapped.messages.iter_mut() {
-                if let crate::proxy::mappers::claude::models::MessageContent::Array(blocks) = &mut msg.content {
-                    blocks.retain(|b| !matches!(b, 
-                        crate::proxy::mappers::claude::models::ContentBlock::Thinking { .. } |
-                        crate::proxy::mappers::claude::models::ContentBlock::RedactedThinking { .. }
-                    ));
-                }
-            }
+            // 使用 ContextManager 的统一策略 (Aggressive)
+            crate::proxy::mappers::context_manager::ContextManager::purify_history(
+                &mut request_with_mapped.messages, 
+                crate::proxy::mappers::context_manager::PurificationStrategy::Aggressive
+            );
         }
 
         // ===== [3-Layer Progressive Compression + Calibrated Estimation] Context Management =====
@@ -640,7 +645,6 @@ pub async fn handle_messages(
                         // Success, no need for Layer 2
                     } else {
                         // Still high pressure, update for Layer 2
-                        estimated_usage = new_usage;
                         usage_ratio = new_ratio;
                         compression_applied = false; // Allow Layer 2 to run
                     }
@@ -673,7 +677,6 @@ pub async fn handle_messages(
                         trace_id, usage_ratio * 100.0, new_ratio * 100.0, estimated_usage - new_usage
                     );
                     
-                    estimated_usage = new_usage;
                     usage_ratio = new_ratio;
                 }
             }
@@ -711,8 +714,6 @@ pub async fn handle_messages(
                             "[{}] [Layer-3] Compression result: {:.1}% → {:.1}% (saved {} tokens)",
                             trace_id, usage_ratio * 100.0, new_ratio * 100.0, estimated_usage - new_usage
                         );
-                        
-                        estimated_usage = new_usage;
                     }
                     Err(e) => {
                         error!(
@@ -1368,12 +1369,12 @@ fn extract_last_user_message_for_detection(request: &ClaudeRequest) -> Option<St
 /// 根据后台任务类型选择合适的模型
 fn select_background_model(task_type: BackgroundTaskType) -> &'static str {
     match task_type {
-        BackgroundTaskType::TitleGeneration => BACKGROUND_MODEL_LITE,     // 极简任务
-        BackgroundTaskType::SimpleSummary => BACKGROUND_MODEL_LITE,       // 简单摘要
-        BackgroundTaskType::SystemMessage => BACKGROUND_MODEL_LITE,       // 系统消息
-        BackgroundTaskType::PromptSuggestion => BACKGROUND_MODEL_LITE,    // 建议生成
-        BackgroundTaskType::EnvironmentProbe => BACKGROUND_MODEL_LITE,    // 环境探测
-        BackgroundTaskType::ContextCompression => BACKGROUND_MODEL_STANDARD, // 复杂压缩
+        BackgroundTaskType::TitleGeneration => INTERNAL_BACKGROUND_TASK,
+        BackgroundTaskType::SimpleSummary => INTERNAL_BACKGROUND_TASK,
+        BackgroundTaskType::SystemMessage => INTERNAL_BACKGROUND_TASK,
+        BackgroundTaskType::PromptSuggestion => INTERNAL_BACKGROUND_TASK,
+        BackgroundTaskType::EnvironmentProbe => INTERNAL_BACKGROUND_TASK,
+        BackgroundTaskType::ContextCompression => INTERNAL_BACKGROUND_TASK,
     }
 }
 
@@ -1613,7 +1614,7 @@ async fn try_compress_with_summary(
     });
     
     let summary_request = ClaudeRequest {
-        model: BACKGROUND_MODEL_LITE.to_string(),
+        model: INTERNAL_BACKGROUND_TASK.to_string(),
         messages: summary_messages,
         system: None,
         stream: false,
@@ -1629,11 +1630,11 @@ async fn try_compress_with_summary(
         quality: None,
     };
     
-    debug!("[{}] [Layer-3] Calling {} for summary generation", trace_id, BACKGROUND_MODEL_LITE);
+    debug!("[{}] [Layer-3] Calling {} for summary generation", trace_id, INTERNAL_BACKGROUND_TASK);
     
     // 3. Call upstream using helper function (reuse existing infrastructure)
     let xml_summary = call_gemini_sync(
-        BACKGROUND_MODEL_LITE,
+        INTERNAL_BACKGROUND_TASK,
         &summary_request,
         token_manager,
         trace_id,

@@ -226,6 +226,9 @@ pub struct StreamingState {
     pub in_mcp_xml: bool,
     // [FIX] Estimated prompt tokens for calibrator learning
     pub estimated_prompt_tokens: Option<u32>,
+    // [FIX #859] Post-thinking interruption tracking
+    pub has_thinking: bool,
+    pub has_content: bool,
 }
 
 impl StreamingState {
@@ -250,6 +253,8 @@ impl StreamingState {
             mcp_xml_buffer: String::new(),
             in_mcp_xml: false,
             estimated_prompt_tokens: None,
+            has_thinking: false,
+            has_content: false,
         }
     }
 
@@ -683,6 +688,8 @@ impl<'a> PartProcessor<'a> {
             }
 
             chunks.extend(self.process_function_call(fc, signature));
+            // [FIX #859] Mark that we have received actual content (tool use)
+            self.state.has_content = true;
             return chunks;
         }
 
@@ -746,6 +753,9 @@ impl<'a> PartProcessor<'a> {
             ));
         }
 
+        // [FIX #859] Mark that we have received thinking content
+        self.state.has_thinking = true;
+
         if !text.is_empty() {
             chunks.push(
                 self.state
@@ -793,6 +803,9 @@ impl<'a> PartProcessor<'a> {
             }
             return chunks;
         }
+
+        // [FIX #859] Mark that we have received actual content (text)
+        self.state.has_content = true;
 
         // 处理之前的 trailingSignature
         if self.state.has_trailing_signature() {

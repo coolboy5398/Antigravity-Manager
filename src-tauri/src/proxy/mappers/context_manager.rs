@@ -36,8 +36,69 @@ fn estimate_tokens_from_str(s: &str) -> u32 {
     ((ascii_tokens + unicode_tokens) as f32 * 1.15).ceil() as u32
 }
 
+/// Strategy for context purification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PurificationStrategy {
+    /// Soft purification: Retains recent thinking blocks (~2 turns), removes older ones
+    Soft,
+    /// Aggressive purification: Removes ALL thinking blocks to save maximum tokens
+    Aggressive,
+}
+
 /// Context Manager implementation
 pub struct ContextManager;
+
+impl ContextManager {
+    /// Purify message history based on the selected strategy
+    ///
+    /// This removes Thinking blocks completely (unlike compression which keeps placeholders/signatures)
+    /// Used when context is critical or signatures are invalid.
+    pub fn purify_history(messages: &mut Vec<Message>, strategy: PurificationStrategy) -> bool {
+        let protected_last_n = match strategy {
+            PurificationStrategy::Soft => 4, // Protect last ~2 turns (User-AI-User-AI)
+            PurificationStrategy::Aggressive => 0, // No protection
+        };
+
+        Self::strip_thinking_blocks(messages, protected_last_n)
+    }
+
+    /// Internal helper to strip thinking blocks from messages outside the protected range
+    fn strip_thinking_blocks(messages: &mut Vec<Message>, protected_last_n: usize) -> bool {
+        let total_msgs = messages.len();
+        if total_msgs == 0 {
+            return false;
+        }
+        
+        let start_protection_idx = total_msgs.saturating_sub(protected_last_n);
+        let mut modified = false;
+
+        for (i, msg) in messages.iter_mut().enumerate() {
+            // Skip protected messages
+            if i >= start_protection_idx {
+                continue;
+            }
+
+            if msg.role == "assistant" {
+                if let MessageContent::Array(blocks) = &mut msg.content {
+                    let original_len = blocks.len();
+                    // Retain only non-Thinking blocks
+                    blocks.retain(|b| !matches!(b, ContentBlock::Thinking { .. }));
+                    
+                    if blocks.len() != original_len {
+                        modified = true;
+                        debug!(
+                            "[ContextManager] Stripped {} thinking blocks from message {}",
+                            original_len - blocks.len(),
+                            i
+                        );
+                    }
+                }
+            }
+        }
+
+        modified
+    }
+}
 
 impl ContextManager {
     /// Estimate token usage for a Claude Request
