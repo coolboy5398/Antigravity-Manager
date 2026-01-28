@@ -95,6 +95,7 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'start_oauth_login': { url: '/api/accounts/oauth/start', method: 'POST' },
   'complete_oauth_login': { url: '/api/accounts/oauth/complete', method: 'POST' },
   'cancel_oauth_login': { url: '/api/accounts/oauth/cancel', method: 'POST' },
+  'submit_oauth_code': { url: '/api/accounts/oauth/submit-code', method: 'POST' },
 
   // Import
   'import_v1_accounts': { url: '/api/accounts/import/v1', method: 'POST' },
@@ -165,7 +166,13 @@ export async function request<T>(cmd: string, args?: any): Promise<T> {
     const response = await fetch(url, options);
     if (!response.ok) {
       if (!isTauri && response.status === 401) {
-        window.dispatchEvent(new CustomEvent('abv-unauthorized'));
+        // [FIX #1163] 增加防抖锁，避免重复事件导致 UI 抖动
+        const now = Date.now();
+        const lastAuthError = (window as any)._lastAuthErrorTime || 0;
+        if (now - lastAuthError > 2000) {
+          (window as any)._lastAuthErrorTime = now;
+          window.dispatchEvent(new CustomEvent('abv-unauthorized'));
+        }
       }
       const errorData = await response.json().catch(() => ({}));
       throw errorData.error || `HTTP Error ${response.status}`;

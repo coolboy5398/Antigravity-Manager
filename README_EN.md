@@ -1,6 +1,6 @@
 # Antigravity Tools 🚀
 # Antigravity Tools 🚀
-> Professional AI Account Management & Proxy System (v4.0.2)
+> Professional AI Account Management & Proxy System (v4.0.4)
 
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
@@ -10,7 +10,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-4.0.2-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-4.0.4-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -80,7 +80,7 @@ If you find this project helpful, feel free to buy me a coffee!
 
 ### 5. 🎨 Multimodal & Imagen 3 Support
 *   **Advanced Image Control**: Supports precise control over image generation tasks via OpenAI `size` (e.g., `1024x1024`, `16:9`) parameters or model name suffixes.
-*   **Enhanced Payload Support**: The backend supports payloads up to **100MB**, more than enough for 4K HD image recognition and processing.
+*   **Enhanced Payload Support**: The backend supports payloads up to **100MB** (configurable), more than enough for 4K HD image recognition and processing.
 
 ##  GUI Overview
 
@@ -151,11 +151,42 @@ Download from [GitHub Releases](https://github.com/lbjlaq/Antigravity-Manager/re
 *   **Linux**: `.deb` or `AppImage`
 
 ### Option C: Docker Deployment (Recommended for NAS/Servers)
-If you prefer running in a containerized environment, we provide a native Docker image. This image supports the v4.0.2 Native Headless architecture, automatically hosts frontend static resources, and allows for direct browser-based management.
+If you prefer running in a containerized environment, we provide a native Docker image. This image supports the v4.0.3 Native Headless architecture, automatically hosts frontend static resources, and allows for direct browser-based management.
 
 ```bash
 # Option 1: Direct Run (Recommended)
-docker run -d --name antigravity-manager -p 8045:8045 -v ~/.antigravity_tools:/root/.antigravity_tools lbjlaq/antigravity-manager:latest
+# - API_KEY: Required. Used for AI request authentication.
+# - WEB_PASSWORD: Optional. Used for Web UI login. Defaults to API_KEY if NOT set.
+docker run -d --name antigravity-manager \
+  -p 8045:8045 \
+  -e API_KEY=sk-your-api-key \
+  -e WEB_PASSWORD=your-login-password \
+  -e ABV_MAX_BODY_SIZE=104857600 \
+  -v ~/.antigravity_tools:/root/.antigravity_tools \
+  lbjlaq/antigravity-manager:latest
+
+# Forgot keys? Run `docker logs antigravity-manager` or `grep -E '"api_key"|"admin_password"' ~/.antigravity_tools/gui_config.json`
+
+#### 🔐 Authentication Scenarios
+*   **Scenario A: Only `API_KEY` is set**
+    - **Web Login**: Use `API_KEY` to access the dashboard.
+    - **API Calls**: Use `API_KEY` for AI request authentication.
+*   **Scenario B: Both `API_KEY` and `WEB_PASSWORD` are set (Recommended)**
+    - **Web Login**: **Must** use `WEB_PASSWORD`. Using API Key will be rejected (more secure).
+    - **API Calls**: Continue to use `API_KEY`. This allows you to share the API Key with team members while keeping the password for administrative access only.
+
+#### 🆙 Upgrade Guide for Older Versions
+If you are upgrading from v4.0.1 or earlier, your installation won't have a `WEB_PASSWORD` set by default. You can add one using any of these methods:
+1.  **Web UI (Recommended)**: Log in using your existing `API_KEY`, go to the **API Proxy Settings** page, find the **Web UI Management Password** section below the API Key, set your new password, and save.
+2.  **Environment Variable (Docker)**: Stop the old container and start the new one with the added parameter `-e WEB_PASSWORD=your_new_password`. **Note: Environment variables have the highest priority and will override any changes in the UI.**
+3.  **Config File (Persistent)**: Directly edit `~/.antigravity_tools/gui_config.json` and add/modify `"admin_password": "your_new_password"` inside the `proxy` object.
+    - *Note: `WEB_PASSWORD` is the environment variable name, while `admin_password` is the JSON key in the config file.*
+
+> [!TIP]
+> **Priority Logic**:
+> - **Environment Variable** (`WEB_PASSWORD`) has the highest priority. If set, the application will always use it and ignore values in the configuration file.
+> - **Configuration File** (`gui_config.json`) is used for persistent storage. When you change the password via Web UI and save, it is written here.
+> - **Fallback**: If neither is set, it falls back to `API_KEY`; if even `API_KEY` is missing, a random one is generated.
 
 # Option 2: Use Docker Compose
 # 1. Enter the Docker directory
@@ -216,7 +247,53 @@ print(response.choices[0].message.content)
 ## 📝 Developer & Community
 
 *   **Changelog**:
+    *   **v4.0.4 (2026-01-27)**:
+        -   **[Enhancement] Deep Integration of Gemini Image Generation & Multi-Protocol Support (PR #1203)**:
+            - **OpenAI Compatibility**: Added support for calling Gemini 3 image models via the standard OpenAI Images API (`/v1/images/generate`), supporting parameters like `size` and `quality`.
+            - **Multi-Protocol Integration**: Enhanced Claude and OpenAI Chat interfaces to support direct image generation parameters, implementing automatic aspect ratio calculation and 4K/2K quality mapping.
+            - **Documentation**: Added `docs/gemini-3-image-guide.md` providing a complete guide for Gemini image generation integration.
+            - **Stability Optimization**: Optimized common utility functions (`common_utils.rs`) and Gemini/OpenAI mapping logic to ensure stable transmission of large payloads.
+        -   **[Core Fix] Align OpenAI Retry & Rate Limit Logic (PR #1204)**:
+            - **Logic Alignment**: Refactored the retry, rate limiting, and account rotation logic for the OpenAI handler to align with the Claude handler, significantly improving stability under high concurrency.
+            - **Hot Reload Optimization**: Ensured that OpenAI requests can accurately execute backoff strategies and automatically switch available accounts when triggering 429 or 503 errors.
+        -   **[Core Fix] Web OAuth Account Persistence Fix**:
+            - **Index Sync**: Resolved an issue where accounts added via Web OAuth were saved as files but not updated in the global account index (`accounts.json`), causing them to disappear after restart or be invisible to the desktop app.
+            - **Lock Unification**: Refactored `TokenManager` persistence logic to reuse `modules::account` core methods, ensuring atomicity of file locks and index updates.
+        -   **[Core Fix] Resolve Google OAuth Non-Localhost Callback Restriction (Fix Issue #1186)**:
+            -   **Issue Context**: Google does not support using non-localhost private IPs as callback URLs in OAuth flows, triggering "Unsafe App" warnings even with `device_id` injection.
+            -   **Solution**: Introduced a standardized "Manual OAuth Submission" flow. When the browser cannot auto-redirect to localhost (e.g., remote deployment), users can manually paste the callback URL or auth code to complete authorization.
+            - **Enhancement**: Refactored the manual submission UI with full i18n support (9 languages) and polished interactions, ensuring successful account addition in any network environment.
+        -   **[Core Fix] Resolve Google Cloud Code API 429 Errors (Fix Issue #1176)**:
+            - **Smart Fallback**: Migrated default API traffic to the more stable Daily/Sandbox environments, bypassing frequent 429 errors currently affecting the production environment (`cloudcode-pa.googleapis.com`).
+            - **Enhanced Robustness**: Implemented a three-level fallback strategy (Sandbox -> Daily -> Prod) to ensure high availability of core business flows under extreme network conditions.
+        -   **[Core Optimization] Account Scheduling Algorithm Upgrade**:
+            - **Health Score System**: Introduced a real-time health score (0.0 to 1.0). Failures (e.g., 429/5xx) significantly penalize the score to demote impaired accounts, while successful requests gradually restore scores for intelligent self-healing.
+            - **Tiered Smart Prioritization**: Re-engineered scheduling priority to `Subscription Tier > Remaining Quota > Health Score`. Ensures that among accounts with the same tier and quota, the most stable one is always prioritized.
+            - **Throttle Delay Mechanism**: In extreme rate-limiting scenarios, if all accounts are locked but one is due to recover within 2s, the system will automatically suspend the thread to wait instead of erroring out. This markedly improves high-concurrency stability and session stickiness.
+            - **Full Protocol Integration**: Refactored the `TokenManager` core interface and completed synchronized adaptation for all handlers (Claude, Gemini, OpenAI, Audio, Warmup), ensuring scheduling changes are transparent to business logic.
+        -   **[Core Fix] Persist Fixed Account Mode Setting (PR #1209)**:
+            -   **Issue**: The Fixed Account Mode setting was reset after service restart in previous versions.
+            -   **Fix**: Implemented persistent storage for the setting, ensuring user preference remains effective after restart.
+        -   **[Core Fix] Millisecond Parsing for Rate Limits (PR #1210)**:
+            -   **Issue**: Some upstream services return `Retry-After` or rate limit headers with decimal millisecond values, causing parsing failures.
+            -   **Fix**: Enhanced time parsing logic to support floating-point time formats, improving compatibility with non-standard upstreams.
+    *   **v4.0.3 (2026-01-27)**:
+        -   **[Enhancement] Increase Body Limit to Support Large Image Payloads (PR #1167)**:
+            - Increased the default request body limit from 2MB to **100MB** to resolve 413 (Payload Too Large) errors during multi-image transfers.
+            - Added environment variable `ABV_MAX_BODY_SIZE` to allow dynamic adjustment of the maximum limit.
+            - Transparently logs the effective Body Limit on startup for easier troubleshooting.
+        -   **[Core Fix] Resolve Google OAuth Authorization Failure Due to Missing 'state' Parameter (Issue #1168)**:
+            - Fixed the "Agent execution terminated" error when adding Google accounts.
+            - Implemented random `state` parameter generation and callback verification to enhance OAuth security and compatibility.
+            - Ensured authorization flows comply with OAuth 2.0 standards in both desktop and web modes.
+        -   **[Core Fix] Resolve Proxy Toggle and Account Changes Requiring Restart in Docker/Web Mode (Issue #1166)**:
+            - Implemented persistent storage for proxy toggle states, ensuring consistency across container restarts.
+            - Added automatic hot-reloading of the Token Manager after adding, deleting, switching, reordering, or importing accounts, making changes effective immediately in the proxy service.
+            - Optimized account switching logic to automatically clear legacy session bindings, ensuring requests are immediately routed to the new account.
     *   **v4.0.2 (2026-01-26)**:
+        -   **[Core Fix] Session Persistence After Account Switch (Fix Issue #1159)**:
+            - Enhanced database injection logic to synchronize identity info (Email) and clear legacy UserID cache during account switching.
+            - Resolved session association failures caused by mismatches between the new Token and old identity metadata.
         -   **[Core Fix] Model Mapping Persistence in Docker/Web Mode (Fix Issue #1149)**:
             - Resolved an issue where model mapping configurations modified via API in Docker or Web deployment modes were not saved to disk.
             - Ensured the `admin_update_model_mapping` interface correctly invokes persistence logic, so configurations remain effective after container restarts.
@@ -241,6 +318,13 @@ print(response.choices[0].message.content)
                 - ✅ Significantly improves Schema compatibility and model understanding for MCP tools (e.g., Pencil)
                 - ✅ Establishes pluggable foundation for adding more MCP tools (filesystem, database, etc.) in the future
                 - ✅ Fully backward compatible, all 25 tests passing
+        -   **[Security Enhancement] Web UI Management Password & API Key Separation (Fix Issue #1139)**:
+            - **Independent Password Configuration**: Support setting a separate management console login password via `ABV_WEB_PASSWORD` or `WEB_PASSWORD` environment variables.
+            - **Intelligent Authentication Logic**: 
+                - Management interfaces prioritize validating the independent password, automatically falling back to `API_KEY` if not set (ensuring backward compatibility).
+                - AI Proxy interfaces strictly only allow `API_KEY` for authentication, achieving permission isolation.
+            - **Configuration UI Support**: Added a management password editing item in "Dashboard - Service Config," supporting one-click retrieval or modification.
+            - **Log Guidance**: Headless mode startup clearly prints the status and retrieval methods for both API Key and Web UI Password.
     *   **v4.0.1 (2026-01-26)**:
         -   **[UX Optimization] Theme & Language Transition Smoothness**:
             - Resolved the UI freezing issue during theme and language switching by decoupling configuration persistence from the state update loop.
