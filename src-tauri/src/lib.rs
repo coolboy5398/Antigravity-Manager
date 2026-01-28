@@ -281,7 +281,9 @@ pub fn run() {
             commands::prepare_oauth_url,
             commands::start_oauth_login,
             commands::complete_oauth_login,
+            commands::complete_oauth_login,
             commands::cancel_oauth_login,
+            commands::submit_oauth_code,
             commands::import_v1_accounts,
             commands::import_from_db,
             commands::import_custom_db,
@@ -324,6 +326,8 @@ pub fn run() {
             commands::proxy::clear_proxy_session_bindings,
             commands::proxy::set_preferred_account,
             commands::proxy::get_preferred_account,
+            commands::proxy::clear_proxy_rate_limit,
+            commands::proxy::clear_all_proxy_rate_limits,
             // Autostart commands
             commands::autostart::toggle_auto_launch,
             commands::autostart::is_auto_launch_enabled,

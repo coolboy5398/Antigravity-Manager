@@ -32,7 +32,8 @@
         "enabled": "已启用",
         "disabled": "已禁用",
         "tauri_api_not_loaded": "Tauri API 未正确加载,请重启应用",
-        "environment_error": "环境错误: {{error}}"
+        "environment_error": "环境错误: {{error}}",
+        "submit": "提交"
     },
     "nav": {
         "dashboard": "仪表盘",
@@ -201,7 +202,10 @@
                 "copy_link": "复制授权链接",
                 "copied": "已复制",
                 "link_label": "授权链接",
-                "link_click_to_copy": "点击复制"
+                "link_click_to_copy": "点击复制",
+                "manual_hint": "浏览器没有自动跳转？请在此处粘贴回调链接或 Authorization Code：",
+                "manual_placeholder": "粘贴回调链接或 Code...",
+                "error_no_flow": "请先点击“开始 OAuth 授权”"
             },
             "token": {
                 "label": "Refresh Token",
@@ -549,7 +553,9 @@
                 "max_wait": "最大等待时长 (秒)",
                 "max_wait_tooltip": "仅在“缓存优先”模式下生效：如果账号限流重置时间小于此值，则原地等待而非切换账号。",
                 "clear_bindings": "清除会话绑定",
-                "clear_bindings_tooltip": "立即断开所有会话与账号的绑定关系，强制下一次请求重新分配账号。"
+                "clear_bindings_tooltip": "立即断开所有会话与账号的绑定关系，强制下一次请求重新分配账号。",
+                "clear_rate_limits": "清除限流记录",
+                "clear_rate_limits_tooltip": "立即清除所有账号的本地限流记录，强制下一次请求尝试直接调用上游。"
             },
             "experimental": {
                 "title": "实验性设置 (Experimental)",
@@ -625,7 +631,9 @@
             "regenerate_key_title": "重新生成 API Key",
             "regenerate_key_msg": "确定要重新生成 API Key 吗？旧的 Key 将立即失效。",
             "clear_bindings_title": "清除会话绑定",
-            "clear_bindings_msg": "确定要清除所有会话与账号的绑定映射吗？"
+            "clear_bindings_msg": "确定要清除所有会话与账号的绑定映射吗？",
+            "clear_rate_limits_title": "清除限流记录",
+            "clear_rate_limits_confirm": "确定要清除所有本地限流记录吗？"
         },
         "model": {
             "flash": "极速响应",
@@ -840,6 +848,15 @@
         "title": "发现新版本",
         "message": "新版本已准备就绪，包含多项优化与改进。当前版本: v{{current}}",
         "action": "立即更新"
+    },
+    "login": {
+        "title": "安全访问控制",
+        "desc": "当前运行在 Web 模式下，请输入管理密码或 API Key 以进入后台。",
+        "placeholder": "请输入管理密码或 API Key",
+        "btn_login": "验证并进入",
+        "note": "注意：如果设置了独立的管理密码，请输入管理密码；否则请输入 API_KEY。",
+        "lookup_hint": "如果您忘记了，请运行 docker logs antigravity-manager 寻找 Current API Key 或 Web UI Password",
+        "config_hint": "或执行 grep -E '\"api_key\"|\"admin_password\"' ~/.antigravity_tools/gui_config.json 查看。"
     },
     "token_stats": {
         "title": "Token 消费统计",
