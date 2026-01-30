@@ -22,7 +22,9 @@
         "warning": "Aviso",
         "info": "Informação",
         "details": "Detalhes",
+        "example": "Example",
         "clear": "Limpar",
+        "clearing": "Limpando...",
         "prev_page": "Anterior",
         "next_page": "Próxima",
         "pagination_info": "Mostrando {{start}} a {{end}} de {{total}} entradas",
@@ -58,7 +60,13 @@
         "switch_to_portuguese": "Alternar para Português",
         "switch_to_portuguese_short": "PT",
         "switch_to_russian": "Alternar para Russo",
-        "switch_to_russian_short": "RU"
+        "switch_to_russian_short": "RU",
+        "switch_to_korean": "Alternar para Coreano",
+        "switch_to_korean_short": "KO",
+        "switch_to_spanish": "Alternar para Espanhol",
+        "switch_to_spanish_short": "ES",
+        "switch_to_malay": "Alternar para Malaio",
+        "switch_to_malay_short": "MY"
     },
     "dashboard": {
         "hello": "Olá, Usuário 👋",
@@ -351,6 +359,14 @@
             "clear_logs_title": "Confirmação de Limpeza de Logs",
             "clear_logs_msg": "Tem certeza de que deseja limpar todos os arquivos de cache de log?",
             "logs_cleared": "Cache de logs limpo",
+            "antigravity_cache_title": "Limpeza de Cache do Antigravity",
+            "antigravity_cache_desc": "Limpar o cache do Antigravity pode resolver falhas de login, erros de validação de versão e falhas de autorização OAuth.",
+            "antigravity_cache_warning": "Certifique-se de que o Antigravity está completamente fechado antes de limpar o cache.",
+            "clear_antigravity_cache": "Limpar Cache do Antigravity",
+            "clear_cache_confirm_title": "Confirmar Limpeza do Cache do Antigravity",
+            "clear_cache_confirm_msg": "Os seguintes diretórios de cache serão limpos:",
+            "cache_cleared_success": "Cache limpo com sucesso, {{size}} MB liberados",
+            "cache_not_found": "Diretórios de cache do Antigravity não encontrados",
             "http_api_title": "Serviço HTTP API",
             "http_api_desc": "Fornece interface HTTP local para programas externos (por exemplo, plugins do VS Code).",
             "http_api_enabled": "Habilitar HTTP API",
@@ -410,6 +426,12 @@
         },
         "config": {
             "title": "Configuração do Serviço",
+            "request": {
+                "user_agent": "User-Agent Override",
+                "user_agent_tooltip": "Override the User-Agent header sent to upstream APIs. Leave empty to use default.",
+                "user_agent_hint": "Current Default: antigravity/<version> <os>/<arch>",
+                "user_agent_placeholder": "Enter custom User-Agent string..."
+            },
             "port": "Porta de Escuta",
             "port_tooltip": "Porta TCP que o Proxy da API local escuta. Pare o serviço para alterá-la, depois reinicie para aplicar.",
             "port_hint": "Padrão 8045, reinício necessário para aplicar alterações",

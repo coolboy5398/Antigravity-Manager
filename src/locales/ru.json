@@ -23,7 +23,9 @@
         "warning": "Предупреждение",
         "info": "Информация",
         "details": "Детали",
+        "example": "Example",
         "clear": "Очистить",
+        "clearing": "Очистка...",
         "prev_page": "Предыдущая",
         "next_page": "Следующая",
         "pagination_info": "Показано {{start}}-{{end}} из {{total}} записей",
@@ -60,7 +62,13 @@
         "switch_to_russian": "Переключить на русский",
         "switch_to_russian_short": "RU",
         "switch_to_portuguese": "Переключить на португальский",
-        "switch_to_portuguese_short": "PT"
+        "switch_to_portuguese_short": "PT",
+        "switch_to_korean": "Переключить на корейский",
+        "switch_to_korean_short": "KO",
+        "switch_to_spanish": "Переключить на испанский",
+        "switch_to_spanish_short": "ES",
+        "switch_to_malay": "Переключить на малайский",
+        "switch_to_malay_short": "MY"
     },
     "dashboard": {
         "hello": "Привет, Пользователь 👋",
@@ -353,7 +361,15 @@
             "clear_logs": "Очистить кэш логов",
             "clear_logs_title": "Подтверждение очистки логов",
             "clear_logs_msg": "Вы уверены, что хотите очистить все файлы кэша логов?",
-            "logs_cleared": "Кэш логов очищен"
+            "logs_cleared": "Кэш логов очищен",
+            "antigravity_cache_title": "Очистка кэша Antigravity",
+            "antigravity_cache_desc": "Очистка кэша Antigravity может решить проблемы с входом, ошибки проверки версии и сбои авторизации OAuth.",
+            "antigravity_cache_warning": "Перед очисткой кэша убедитесь, что Antigravity полностью закрыт.",
+            "clear_antigravity_cache": "Очистить кэш Antigravity",
+            "clear_cache_confirm_title": "Подтверждение очистки кэша Antigravity",
+            "clear_cache_confirm_msg": "Следующие каталоги кэша будут очищены:",
+            "cache_cleared_success": "Кэш очищен, освобождено {{size}} МБ",
+            "cache_not_found": "Каталоги кэша Antigravity не найдены"
         },
         "about": {
             "title": "О программе",
@@ -403,6 +419,12 @@
         },
         "config": {
             "title": "Конфигурация сервиса",
+            "request": {
+                "user_agent": "User-Agent Override",
+                "user_agent_tooltip": "Override the User-Agent header sent to upstream APIs. Leave empty to use default.",
+                "user_agent_hint": "Current Default: antigravity/<version> <os>/<arch>",
+                "user_agent_placeholder": "Enter custom User-Agent string..."
+            },
             "port": "Порт прослушивания",
             "port_tooltip": "TCP порт, на котором локальный API Прокси слушает. Остановите сервис для изменения, затем перезапустите для применения.",
             "port_hint": "По умолчанию 8045, требуется перезапуск для применения изменений",

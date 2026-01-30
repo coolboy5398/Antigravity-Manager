@@ -22,7 +22,9 @@
         "warning": "警告",
         "info": "提示",
         "details": "详情",
+        "example": "示例",
         "clear": "清除",
+        "clearing": "清理中...",
         "prev_page": "上一页",
         "next_page": "下一页",
         "pagination_info": "显示第 {{start}} 到 {{end}} 条，共 {{total}} 条",
@@ -61,7 +63,11 @@
         "switch_to_portuguese": "切换到葡萄牙文",
         "switch_to_portuguese_short": "PT",
         "switch_to_korean": "切换到韩语",
-        "switch_to_korean_short": "KO"
+        "switch_to_korean_short": "KO",
+        "switch_to_spanish": "切换到西班牙语",
+        "switch_to_spanish_short": "ES",
+        "switch_to_malay": "切换到马来语",
+        "switch_to_malay_short": "MY"
     },
     "dashboard": {
         "hello": "你好, 用户 👋",
@@ -359,6 +365,14 @@
             "clear_logs_title": "清理日志确认",
             "clear_logs_msg": "确定要清理所有日志缓存文件吗？",
             "logs_cleared": "日志缓存已清理",
+            "antigravity_cache_title": "Antigravity 缓存清理",
+            "antigravity_cache_desc": "清理 Antigravity 应用的缓存可以解决登录失败、版本验证错误、OAuth 授权失败等问题。",
+            "antigravity_cache_warning": "请确保 Antigravity 应用已完全退出后再执行清理操作。",
+            "clear_antigravity_cache": "清理 Antigravity 缓存",
+            "clear_cache_confirm_title": "确认清理 Antigravity 缓存",
+            "clear_cache_confirm_msg": "将清理以下缓存目录：",
+            "cache_cleared_success": "缓存清理完成，释放 {{size}} MB 空间",
+            "cache_not_found": "未找到 Antigravity 缓存目录",
             "http_api_title": "HTTP API 服务",
             "http_api_desc": "为外部程序（如 VS Code 插件）提供本地 HTTP 接口。",
             "http_api_enabled": "启用 HTTP API",
@@ -418,6 +432,12 @@
         },
         "config": {
             "title": "服务配置",
+            "request": {
+                "user_agent": "User-Agent 覆盖",
+                "user_agent_tooltip": "自定义发送给上游 API 的 User-Agent 请求头。留空则使用默认值。",
+                "user_agent_hint": "当前默认值: antigravity/<version> <os>/<arch>",
+                "user_agent_placeholder": "输入自定义 User-Agent 字符串..."
+            },
             "port": "监听端口",
             "port_tooltip": "本地 API 代理监听的端口。需要先停止服务再修改，修改后需重启生效。",
             "port_hint": "默认 8045，修改端口需重启服务",

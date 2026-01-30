@@ -336,6 +336,10 @@ pub async fn save_config(
         instance.axum_server.update_zai(&config.proxy).await;
         // 更新实验性配置
         instance.axum_server.update_experimental(&config.proxy).await;
+        // 更新调试日志配置
+        instance.axum_server.update_debug_logging(&config.proxy).await;
+        // [NEW] 更新 User-Agent 配置
+        instance.axum_server.update_user_agent(&config.proxy).await;
         // 更新熔断配置
         instance.token_manager.update_circuit_breaker_config(config.circuit_breaker.clone()).await;
         tracing::debug!("已同步热更新反代服务配置");
@@ -512,6 +516,22 @@ pub async fn read_text_file(path: String) -> Result<String, String> {
 #[tauri::command]
 pub async fn clear_log_cache() -> Result<(), String> {
     modules::logger::clear_logs()
+}
+
+/// 清理 Antigravity 应用缓存
+/// 用于解决登录失败、版本验证错误等问题
+#[tauri::command]
+pub async fn clear_antigravity_cache() -> Result<modules::cache::ClearResult, String> {
+    modules::cache::clear_antigravity_cache(None)
+}
+
+/// 获取 Antigravity 缓存路径列表（用于预览）
+#[tauri::command]
+pub async fn get_antigravity_cache_paths() -> Result<Vec<String>, String> {
+    Ok(modules::cache::get_existing_cache_paths()
+        .into_iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect())
 }
 
 /// 打开数据目录

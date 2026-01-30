@@ -1,6 +1,7 @@
 {
     "common": {
         "loading": "Loading...",
+        "empty": "Empty",
         "load_more": "Load More",
         "add": "Add",
         "copy": "Copy",
@@ -22,7 +23,9 @@
         "warning": "Warning",
         "info": "Info",
         "details": "Details",
+        "example": "Example",
         "clear": "Clear",
+        "clearing": "Clearing...",
         "prev_page": "Previous",
         "next_page": "Next",
         "pagination_info": "Showing {{start}} to {{end}} of {{total}} entries",
@@ -33,7 +36,9 @@
         "disabled": "Disabled",
         "tauri_api_not_loaded": "Tauri API not loaded, please restart the app",
         "environment_error": "Environment error: {{error}}",
-        "submit": "Submit"
+        "submit": "Submit",
+        "retry": "Retry",
+        "back": "Back"
     },
     "nav": {
         "dashboard": "Dashboard",
@@ -61,7 +66,11 @@
         "switch_to_portuguese": "Switch to Portuguese",
         "switch_to_portuguese_short": "PT",
         "switch_to_korean": "Switch to Korean",
-        "switch_to_korean_short": "KO"
+        "switch_to_korean_short": "KO",
+        "switch_to_spanish": "Switch to Spanish",
+        "switch_to_spanish_short": "ES",
+        "switch_to_malay": "Switch to Malay",
+        "switch_to_malay_short": "MY"
     },
     "dashboard": {
         "hello": "Hello, User 👋",
@@ -205,7 +214,11 @@
                 "link_click_to_copy": "Click to copy",
                 "manual_hint": "Browser didn't redirect? Paste the full callback URL or raw Code here:",
                 "manual_placeholder": "Paste callback URL or code...",
-                "error_no_flow": "Please click 'Start OAuth' first"
+                "error_no_flow": "Please click 'Start OAuth' first",
+                "error_no_url": "Could not obtain OAuth URL",
+                "popup_blocked": "Popup blocked",
+                "manual_submitting": "Submitting authorization code...",
+                "manual_submitted": "Authorization code submitted. Backend is processing..."
             },
             "token": {
                 "label": "Refresh Token",
@@ -359,6 +372,14 @@
             "clear_logs_title": "Clear Logs Confirmation",
             "clear_logs_msg": "Are you sure you want to clear all log cache files?",
             "logs_cleared": "Logs cache cleared",
+            "antigravity_cache_title": "Antigravity Cache Cleanup",
+            "antigravity_cache_desc": "Clear Antigravity cache to resolve login failures, version validation errors, and OAuth authorization issues.",
+            "antigravity_cache_warning": "Please ensure Antigravity is completely closed before clearing cache.",
+            "clear_antigravity_cache": "Clear Antigravity Cache",
+            "clear_cache_confirm_title": "Confirm Clear Antigravity Cache",
+            "clear_cache_confirm_msg": "The following cache directories will be cleared:",
+            "cache_cleared_success": "Cache cleared successfully, freed {{size}} MB",
+            "cache_not_found": "No Antigravity cache directories found",
             "http_api_title": "HTTP API Service",
             "http_api_desc": "Provides local HTTP interface for external programs (e.g. VS Code plugins).",
             "http_api_enabled": "Enable HTTP API",
@@ -391,6 +412,10 @@
             "support_alipay": "Alipay",
             "support_wechat": "WeChat Pay",
             "support_buymeacoffee": "Buy Me a Coffee"
+        },
+        "branding": {
+            "title": "Antigravity Tools",
+            "subtitle": "Professional Account Management"
         }
     },
     "tray": {
@@ -406,6 +431,9 @@
     },
     "proxy": {
         "title": "API Proxy Service",
+        "error": {
+            "load_failed": "Failed to load configuration"
+        },
         "status": {
             "running": "Service Running",
             "stopped": "Service Stopped",
@@ -418,6 +446,12 @@
         },
         "config": {
             "title": "Service Configuration",
+            "request": {
+                "user_agent": "User-Agent Override",
+                "user_agent_tooltip": "Override the User-Agent header sent to upstream APIs. Leave empty to use default.",
+                "user_agent_hint": "Current Default: antigravity/<version> <os>/<arch>",
+                "user_agent_placeholder": "Enter custom User-Agent string..."
+            },
             "port": "Listen Port",
             "port_tooltip": "TCP port the local API Proxy listens on. Stop the service to change it, then restart to apply.",
             "port_hint": "Default 8045, restart required to apply changes",
@@ -851,6 +885,34 @@
         "dialog": {
             "clear_title": "Clear Proxy Logs",
             "clear_msg": "Are you sure you want to clear all proxy logs? This action cannot be undone."
+        },
+        "network": {
+            "title": "Network Monitor",
+            "open": "Open Network Monitor",
+            "requests_count": "{{count}} requests",
+            "start_recording": "Start Recording",
+            "stop_recording": "Stop Recording",
+            "clear_requests": "Clear Requests",
+            "empty": "No requests recorded",
+            "waiting": "Waiting for response...",
+            "badge_error": "Error",
+            "table": {
+                "status": "Status",
+                "command": "Command",
+                "time": "Time",
+                "duration": "Duration"
+            },
+            "sections": {
+                "general": "General",
+                "request_args": "Request Args",
+                "error_details": "Error Details",
+                "response": "Response"
+            },
+            "fields": {
+                "status": "Status",
+                "start_time": "Start Time",
+                "duration": "Duration"
+            }
         }
     },
     "update_notification": {

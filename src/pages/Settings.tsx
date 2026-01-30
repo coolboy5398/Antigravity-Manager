@@ -35,7 +35,11 @@ function Settings() {
             upstream_proxy: {
                 enabled: false,
                 url: ''
-            }
+            },
+            debug_logging: {
+                enabled: false,
+                output_dir: undefined
+            } as { enabled: boolean; output_dir?: string }
         },
         scheduled_warmup: {
             enabled: false,
@@ -50,8 +54,8 @@ function Settings() {
             models: ['gemini-3-pro-high', 'gemini-3-flash', 'gemini-3-pro-image', 'claude-sonnet-4-5-thinking']
         },
         circuit_breaker: {
-            enabled: true,
-            backoff_steps: [60, 300, 1800, 7200]
+            enabled: false,
+            backoff_steps: [30, 60, 120, 300, 600]
         }
     });
 
@@ -60,6 +64,11 @@ function Settings() {
     const [isClearLogsOpen, setIsClearLogsOpen] = useState(false);
     const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
     const [dataDirPath, setDataDirPath] = useState<string>('~/.antigravity_tools/');
+
+    // Antigravity cache clearing state
+    const [isClearCacheOpen, setIsClearCacheOpen] = useState(false);
+    const [cachePaths, setCachePaths] = useState<string[]>([]);
+    const [isClearingCache, setIsClearingCache] = useState(false);
 
     // Update check state
     const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
@@ -177,6 +186,29 @@ function Settings() {
         }
     };
 
+    const handleSelectDebugLogDir = async () => {
+        try {
+            const selected = await open({
+                directory: true,
+                multiple: false,
+                title: t('settings.advanced.debug_log_dir_select', '选择调试日志输出目录'),
+            });
+            if (selected && typeof selected === 'string') {
+                setFormData({
+                    ...formData,
+                    proxy: {
+                        ...formData.proxy,
+                        debug_logging: {
+                            enabled: formData.proxy?.debug_logging?.enabled ?? false,
+                            output_dir: selected,
+                        },
+                    },
+                });
+            }
+        } catch (error) {
+            showToast(`${t('common.error')}: ${error}`, 'error');
+        }
+    };
 
     const handleDetectAntigravityPath = async () => {
         try {
@@ -216,6 +248,46 @@ function Settings() {
             showToast(`${t('settings.about.update_check_failed')}: ${error}`, 'error');
         } finally {
             setIsCheckingUpdate(false);
+        }
+    };
+
+    // Handle opening cache clear dialog
+    const handleOpenClearCacheDialog = async () => {
+        try {
+            const paths = await invoke<string[]>('get_antigravity_cache_paths');
+            setCachePaths(paths);
+            setIsClearCacheOpen(true);
+        } catch (error) {
+            // If no cache paths found, still allow opening the dialog
+            setCachePaths([]);
+            setIsClearCacheOpen(true);
+        }
+    };
+
+    // Handle clearing Antigravity cache
+    const confirmClearAntigravityCache = async () => {
+        setIsClearingCache(true);
+        try {
+            const result = await invoke<{
+                cleared_paths: string[];
+                total_size_freed: number;
+                errors: string[];
+            }>('clear_antigravity_cache');
+
+            const sizeMB = (result.total_size_freed / 1024 / 1024).toFixed(2);
+
+            if (result.cleared_paths.length > 0) {
+                showToast(t('settings.advanced.cache_cleared_success', { size: sizeMB }), 'success');
+            } else if (result.errors.length > 0) {
+                showToast(`${t('common.error')}: ${result.errors[0]}`, 'error');
+            } else {
+                showToast(t('settings.advanced.cache_not_found'), 'info');
+            }
+        } catch (error) {
+            showToast(`${t('common.error')}: ${error}`, 'error');
+        } finally {
+            setIsClearingCache(false);
+            setIsClearCacheOpen(false);
         }
     };
 
@@ -699,6 +771,102 @@ function Settings() {
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Antigravity 缓存清理 */}
+                                <div className="border-t border-gray-200 dark:border-base-200 pt-4">
+                                    <h3 className="font-medium text-gray-900 dark:text-base-content mb-3">{t('settings.advanced.antigravity_cache_title', 'Antigravity 缓存清理')}</h3>
+                                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-lg p-3 mb-3">
+                                        <p className="text-sm text-amber-700 dark:text-amber-400">{t('settings.advanced.antigravity_cache_warning', '请确保 Antigravity 应用已完全退出后再执行清理操作。')}</p>
+                                    </div>
+                                    <div className="bg-gray-50 dark:bg-base-200 border border-gray-200 dark:border-base-300 rounded-lg p-3 mb-3">
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.advanced.antigravity_cache_desc', '清理 Antigravity 应用的缓存可以解决登录失败、版本验证错误、OAuth 授权失败等问题。')}</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            className="px-4 py-2 border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                                            onClick={handleOpenClearCacheDialog}
+                                        >
+                                            {t('settings.advanced.clear_antigravity_cache', '清理 Antigravity 缓存')}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* 调试日志 */}
+                                <div className="border-t border-gray-200 dark:border-base-200 pt-4">
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-base-200 rounded-lg border border-gray-100 dark:border-base-300">
+                                            <div>
+                                                <div className="font-medium text-gray-900 dark:text-base-content">
+                                                    {t('settings.advanced.debug_logs_title', '调试日志')}
+                                                </div>
+                                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                    {t('settings.advanced.debug_logs_enable_desc', '启用后会记录完整请求与响应链路，建议仅在排查问题时开启。')}
+                                                </p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={formData.proxy?.debug_logging?.enabled ?? false}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({
+                                                        ...formData,
+                                                        proxy: {
+                                                            ...formData.proxy,
+                                                            debug_logging: {
+                                                                enabled: e.target.checked,
+                                                                output_dir: formData.proxy?.debug_logging?.output_dir,
+                                                            },
+                                                        },
+                                                    })}
+                                                />
+                                                <div className="w-11 h-6 bg-gray-200 dark:bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                                            </label>
+                                        </div>
+                                        {(formData.proxy?.debug_logging?.enabled ?? false) && (
+                                            <>
+                                                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-lg p-3">
+                                                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                                                        {t('settings.advanced.debug_logs_desc', '记录完整链路：原始输入、转换后的 v1internal 请求、以及上游响应。仅用于问题排查，可能包含敏感数据。')}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-900 dark:text-base-content mb-1">
+                                                        {t('settings.advanced.debug_log_dir', '调试日志输出目录')}
+                                                    </label>
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            className="flex-1 px-4 py-3 border border-gray-200 dark:border-base-300 rounded-lg bg-gray-50 dark:bg-base-200 text-gray-900 dark:text-base-content font-medium"
+                                                            value={formData.proxy?.debug_logging?.output_dir || ''}
+                                                            placeholder={`${dataDirPath.replace(/\/$/, '')}/debug_logs`}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({
+                                                                ...formData,
+                                                                proxy: {
+                                                                    ...formData.proxy,
+                                                                    debug_logging: {
+                                                                        enabled: formData.proxy?.debug_logging?.enabled ?? false,
+                                                                        output_dir: e.target.value || undefined,
+                                                                    },
+                                                                },
+                                                            })}
+                                                        />
+                                                        {isTauri() && (
+                                                            <button
+                                                                className="px-4 py-2 border border-gray-200 dark:border-base-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-base-200 transition-colors"
+                                                                onClick={handleSelectDebugLogDir}
+                                                            >
+                                                                {t('settings.advanced.select_btn')}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                                        {t('settings.advanced.debug_log_dir_hint', `不填写则使用默认目录：${dataDirPath.replace(/\/$/, '')}/debug_logs`)}
+                                                    </p>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </>
                     )}
@@ -791,10 +959,10 @@ function Settings() {
                                         <h3 className="text-3xl font-black text-gray-900 dark:text-base-content tracking-tight mb-2">Antigravity Tools</h3>
                                         <div className="flex items-center justify-center gap-2 text-sm">
                                             <span className="px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium border border-blue-200 dark:border-blue-800">
-                                                v4.0.7
+                                                v4.0.9
                                             </span>
                                             <span className="text-gray-400 dark:text-gray-600">•</span>
-                                            <span className="text-gray-500 dark:text-gray-400">Professional Account Management</span>
+                                            <span className="text-gray-500 dark:text-gray-400">{t('settings.branding.subtitle')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -928,6 +1096,44 @@ function Settings() {
                     onCancel={() => setIsClearLogsOpen(false)}
                 />
 
+                {/* Antigravity Cache Clear Modal */}
+                <ModalDialog
+                    isOpen={isClearCacheOpen}
+                    title={t('settings.advanced.clear_cache_confirm_title', '确认清理 Antigravity 缓存')}
+                    type="confirm"
+                    confirmText={isClearingCache ? t('common.clearing', '清理中...') : t('common.clear')}
+                    cancelText={t('common.cancel')}
+                    isDestructive={true}
+                    onConfirm={confirmClearAntigravityCache}
+                    onCancel={() => setIsClearCacheOpen(false)}
+                >
+                    <div className="space-y-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {t('settings.advanced.clear_cache_confirm_msg', '将清理以下缓存目录：')}
+                        </p>
+                        {cachePaths.length > 0 ? (
+                            <div className="bg-gray-50 dark:bg-base-200 rounded-lg p-3 max-h-40 overflow-y-auto">
+                                <ul className="text-xs font-mono text-gray-600 dark:text-gray-400 space-y-1">
+                                    {cachePaths.map((path, index) => (
+                                        <li key={index} className="truncate">• {path}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 dark:bg-base-200 rounded-lg p-3">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {t('settings.advanced.cache_not_found', '未找到 Antigravity 缓存目录')}
+                                </p>
+                            </div>
+                        )}
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-lg p-2">
+                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                                {t('settings.advanced.antigravity_cache_warning', '请确保 Antigravity 应用已完全退出后再执行清理操作。')}
+                            </p>
+                        </div>
+                    </div>
+                </ModalDialog>
+
                 {/* Support Modal */}
                 <div className={`modal ${isSupportModalOpen ? 'modal-open' : ''} z-[100]`}>
                     <div data-tauri-drag-region className="fixed top-0 left-0 right-0 h-8 z-[110]" />
@@ -965,7 +1171,7 @@ function Settings() {
                                     <div className="w-full aspect-square relative bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100">
                                         <img src="/images/donate/coffee.png" alt="Buy Me A Coffee" className="w-full h-full object-contain" />
                                     </div>
-                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Buy Me a Coffee</span>
+                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{t('settings.about.support_buymeacoffee')}</span>
                                 </div>
                             </div>
 

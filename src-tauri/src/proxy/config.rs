@@ -13,7 +13,7 @@ pub enum ProxyAuthMode {
 
 impl Default for ProxyAuthMode {
     fn default() -> Self {
-        Self::Off
+        Self::Auto
     }
 }
 
@@ -176,6 +176,23 @@ fn default_false() -> bool {
     false
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DebugLoggingConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub output_dir: Option<String>,
+}
+
+impl Default for DebugLoggingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            output_dir: None,
+        }
+    }
+}
+
 /// 反代服务配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyConfig {
@@ -220,6 +237,10 @@ pub struct ProxyConfig {
     #[serde(default)]
     pub enable_logging: bool,
 
+    /// 调试日志配置 (保存完整链路)
+    #[serde(default)]
+    pub debug_logging: DebugLoggingConfig,
+
     /// 上游代理配置
     #[serde(default)]
     pub upstream_proxy: UpstreamProxyConfig,
@@ -227,6 +248,10 @@ pub struct ProxyConfig {
     /// z.ai provider configuration (Anthropic-compatible).
     #[serde(default)]
     pub zai: ZaiConfig,
+
+    /// 自定义 User-Agent 请求头 (可选覆盖)
+    #[serde(default)]
+    pub user_agent_override: Option<String>,
 
     /// 账号调度配置 (粘性会话/限流重试)
     #[serde(default)]
@@ -241,6 +266,10 @@ pub struct ProxyConfig {
     /// - Some(account_id): 固定使用指定账号
     #[serde(default)]
     pub preferred_account_id: Option<String>,
+
+    /// Saved User-Agent string (persisted even when override is disabled)
+    #[serde(default)]
+    pub saved_user_agent: Option<String>,
 }
 
 /// 上游代理配置
@@ -265,11 +294,14 @@ impl Default for ProxyConfig {
             custom_mapping: std::collections::HashMap::new(),
             request_timeout: default_request_timeout(),
             enable_logging: true, // 默认开启，支持 token 统计功能
+            debug_logging: DebugLoggingConfig::default(),
             upstream_proxy: UpstreamProxyConfig::default(),
             zai: ZaiConfig::default(),
             scheduling: crate::proxy::sticky_config::StickySessionConfig::default(),
             experimental: ExperimentalConfig::default(),
             preferred_account_id: None, // 默认使用轮询模式
+            user_agent_override: None,
+            saved_user_agent: None,
         }
     }
 }
