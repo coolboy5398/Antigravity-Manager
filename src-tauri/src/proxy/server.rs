@@ -33,12 +33,14 @@ pub struct AppState {
     pub zai_vision_mcp: Arc<crate::proxy::zai_vision_mcp::ZaiVisionMcpState>,
     pub monitor: Arc<crate::proxy::monitor::ProxyMonitor>,
     pub experimental: Arc<RwLock<crate::proxy::config::ExperimentalConfig>>,
+    pub debug_logging: Arc<RwLock<crate::proxy::config::DebugLoggingConfig>>,
     pub switching: Arc<RwLock<bool>>, // [NEW] 账号切换状态，用于防止并发切换
     pub integration: crate::modules::integration::SystemManager, // [NEW] 系统集成层实现
     pub account_service: Arc<crate::modules::account_service::AccountService>, // [NEW] 账号管理服务层
     pub security: Arc<RwLock<crate::proxy::ProxySecurityConfig>>, // [NEW] 安全配置状态
     pub cloudflared_state: Arc<crate::commands::cloudflared::CloudflaredState>, // [NEW] Cloudflared 插件状态
     pub is_running: Arc<RwLock<bool>>, // [NEW] 运行状态标识
+    pub port: u16, // [NEW] 本地监听端口 (v4.0.8 修复)
 }
 
 // 为 AppState 实现 FromRef，以便中间件提取 security 状态
@@ -129,6 +131,7 @@ pub struct AxumServer {
     security_state: Arc<RwLock<crate::proxy::ProxySecurityConfig>>,
     zai_state: Arc<RwLock<crate::proxy::ZaiConfig>>,
     experimental: Arc<RwLock<crate::proxy::config::ExperimentalConfig>>,
+    debug_logging: Arc<RwLock<crate::proxy::config::DebugLoggingConfig>>,
     pub cloudflared_state: Arc<crate::commands::cloudflared::CloudflaredState>,
     pub is_running: Arc<RwLock<bool>>,
 }
@@ -167,6 +170,12 @@ impl AxumServer {
         tracing::info!("实验性配置已热更新");
     }
 
+    pub async fn update_debug_logging(&self, config: &crate::proxy::config::ProxyConfig) {
+        let mut dbg_cfg = self.debug_logging.write().await;
+        *dbg_cfg = config.debug_logging.clone();
+        tracing::info!("调试日志配置已热更新");
+    }
+
     pub async fn set_running(&self, running: bool) {
         let mut r = self.is_running.write().await;
         *r = running;
@@ -185,6 +194,7 @@ impl AxumServer {
         zai_config: crate::proxy::ZaiConfig,
         monitor: Arc<crate::proxy::monitor::ProxyMonitor>,
         experimental_config: crate::proxy::config::ExperimentalConfig,
+        debug_logging: crate::proxy::config::DebugLoggingConfig,
         integration: crate::modules::integration::SystemManager,
         cloudflared_state: Arc<crate::commands::cloudflared::CloudflaredState>,
     ) -> Result<(Self, tokio::task::JoinHandle<()>), String> {
@@ -196,6 +206,7 @@ impl AxumServer {
 	        let zai_vision_mcp_state =
 	            Arc::new(crate::proxy::zai_vision_mcp::ZaiVisionMcpState::new());
 	        let experimental_state = Arc::new(RwLock::new(experimental_config));
+            let debug_logging_state = Arc::new(RwLock::new(debug_logging));
             let is_running_state = Arc::new(RwLock::new(true));
 
 	        let state = AppState {
@@ -214,12 +225,14 @@ impl AxumServer {
             zai_vision_mcp: zai_vision_mcp_state,
             monitor: monitor.clone(),
             experimental: experimental_state.clone(),
+            debug_logging: debug_logging_state.clone(),
             switching: Arc::new(RwLock::new(false)),
             integration: integration.clone(),
             account_service: Arc::new(crate::modules::account_service::AccountService::new(integration.clone())),
             security: security_state.clone(),
             cloudflared_state: cloudflared_state.clone(),
             is_running: is_running_state.clone(),
+            port,
         };
 
 
@@ -464,6 +477,7 @@ impl AxumServer {
             security_state,
             zai_state,
             experimental: experimental_state.clone(),
+            debug_logging: debug_logging_state.clone(),
             cloudflared_state,
             is_running: is_running_state,
         };
@@ -945,14 +959,13 @@ async fn admin_get_proxy_status(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
     // 在 Headless/Axum 模式下，AxumServer 既然在运行，通常就是 running
-    let proxy_cfg = state.upstream_proxy.read().await;
-    let url = &proxy_cfg.url;
     let active_accounts = state.token_manager.len();
 
     let is_running = { *state.is_running.read().await };
     Ok(Json(serde_json::json!({
         "running": is_running,
-        "url": url,
+        "port": state.port,
+        "base_url": format!("http://127.0.0.1:{}", state.port),
         "active_accounts": active_accounts,
     })))
 }
@@ -2046,4 +2059,3 @@ fn get_oauth_redirect_uri(port: u16, _host: Option<&str>, _proto: Option<&str>) 
         format!("http://localhost:{}/auth/callback", port)
     }
 }
-
