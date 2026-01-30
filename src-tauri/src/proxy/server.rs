@@ -135,6 +135,7 @@ pub struct AxumServer {
     debug_logging: Arc<RwLock<crate::proxy::config::DebugLoggingConfig>>,
     pub cloudflared_state: Arc<crate::commands::cloudflared::CloudflaredState>,
     pub is_running: Arc<RwLock<bool>>,
+    pub token_manager: Arc<TokenManager>, // [NEW] 暴露出 TokenManager 供反代服务复用
 }
 
 impl AxumServer {
@@ -254,11 +255,13 @@ impl AxumServer {
         use crate::proxy::handlers;
         use crate::proxy::middleware::{
             auth_middleware, admin_auth_middleware, monitor_middleware, 
-            service_status_middleware, cors_layer
+            service_status_middleware, cors_layer, ip_filter_middleware
         };
 
         // 1. 构建主 AI 代理路由 (遵循 auth_mode 配置)
         let proxy_routes = Router::new()
+            .route("/health", get(health_check_handler))
+            .route("/healthz", get(health_check_handler))
             // OpenAI Protocol
             .route("/v1/models", get(handlers::openai::handle_list_models))
             .route(
@@ -322,7 +325,8 @@ impl AxumServer {
             .route("/v1/api/event_logging", post(silent_ok_handler))
             // 应用 AI 服务特定的层
             .layer(axum::middleware::from_fn_with_state(state.clone(), auth_middleware))
-            .layer(axum::middleware::from_fn_with_state(state.clone(), monitor_middleware));
+            .layer(axum::middleware::from_fn_with_state(state.clone(), monitor_middleware))
+            .layer(axum::middleware::from_fn_with_state(state.clone(), ip_filter_middleware));
 
         // 2. 构建管理 API (强制鉴权)
         let admin_routes = Router::new()
@@ -495,6 +499,7 @@ impl AxumServer {
             debug_logging: debug_logging_state.clone(),
             cloudflared_state,
             is_running: is_running_state,
+            token_manager: token_manager.clone(),
         };
 
         // 在新任务中启动服务器
@@ -507,9 +512,18 @@ impl AxumServer {
                 tokio::select! {
                     res = listener.accept() => {
                         match res {
-                            Ok((stream, _)) => {
+                            Ok((stream, remote_addr)) => {
                                 let io = TokioIo::new(stream);
-                                let service = TowerToHyperService::new(app.clone());
+                                
+                                // 注入 ConnectInfo (用于获取真实 IP)
+                                use tower::ServiceExt;
+                                use hyper::body::Incoming;
+                                let app_with_info = app.clone().map_request(move |mut req: axum::http::Request<Incoming>| {
+                                    req.extensions_mut().insert(axum::extract::ConnectInfo(remote_addr));
+                                    req
+                                });
+
+                                let service = TowerToHyperService::new(app_with_info);
 
                                 tokio::task::spawn(async move {
                                     if let Err(err) = http1::Builder::new()
@@ -555,7 +569,8 @@ impl AxumServer {
 /// 健康检查处理器
 async fn health_check_handler() -> Response {
     Json(serde_json::json!({
-        "status": "ok"
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION")
     }))
     .into_response()
 }
