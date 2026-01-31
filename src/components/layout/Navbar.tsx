@@ -4,6 +4,7 @@ import { Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useConfigStore } from '../../stores/useConfigStore';
 
+
 import { isTauri, isLinux } from '../../utils/env';
 
 function Navbar() {
@@ -164,6 +165,8 @@ function Navbar() {
 
                     {/* 右侧快捷设置按钮 */}
                     <div className="flex items-center gap-2">
+
+
                         {/* 主题切换按钮 */}
                         <button
                             onClick={toggleTheme}

@@ -9,15 +9,18 @@ import { showToast } from '../components/common/ToastContainer';
 import QuotaProtection from '../components/settings/QuotaProtection';
 import SmartWarmup from '../components/settings/SmartWarmup';
 import PinnedQuotaModels from '../components/settings/PinnedQuotaModels';
+import { useDebugConsole } from '../stores/useDebugConsole';
 
 import { useTranslation } from 'react-i18next';
 import { isTauri } from '../utils/env';
+import DebugConsole from '../components/debug/DebugConsole';
 
 
 function Settings() {
     const { t, i18n } = useTranslation();
     const { config, loadConfig, saveConfig, updateLanguage, updateTheme } = useConfigStore();
-    const [activeTab, setActiveTab] = useState<'general' | 'account' | 'proxy' | 'advanced' | 'about'>('general');
+    const { enable } = useDebugConsole();
+    const [activeTab, setActiveTab] = useState<'general' | 'account' | 'proxy' | 'advanced' | 'debug' | 'about'>('general');
     const [formData, setFormData] = useState<AppConfig>({
         language: 'zh',
         theme: 'system',
@@ -113,6 +116,12 @@ function Settings() {
             setFormData(config);
         }
     }, [config]);
+
+    useEffect(() => {
+        if (activeTab === 'debug') {
+            enable();
+        }
+    }, [activeTab]);
 
     const handleSave = async () => {
         try {
@@ -333,6 +342,15 @@ function Settings() {
                             onClick={() => setActiveTab('advanced')}
                         >
                             {t('settings.tabs.advanced')}
+                        </button>
+                        <button
+                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'debug'
+                                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }`}
+                            onClick={() => setActiveTab('debug')}
+                        >
+                            {t('settings.tabs.debug')}
                         </button>
                         <button
                             className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'about'
@@ -791,7 +809,8 @@ function Settings() {
                                     </div>
                                 </div>
 
-                                {/* 调试日志 */}
+
+
                                 <div className="border-t border-gray-200 dark:border-base-200 pt-4">
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-base-200 rounded-lg border border-gray-100 dark:border-base-300">
@@ -869,6 +888,14 @@ function Settings() {
                                 </div>
                             </div>
                         </>
+                    )}
+
+
+                    {/* 调试设置 */}
+                    {activeTab === 'debug' && (
+                        <div className="space-y-4 animate-in fade-in duration-500 h-[calc(100vh-250px)] min-h-[500px]">
+                            <DebugConsole embedded />
+                        </div>
                     )}
 
                     {/* 代理设置 */}
