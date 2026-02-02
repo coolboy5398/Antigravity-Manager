@@ -137,6 +137,7 @@
         "switch_to": "Bu hesaba geç",
         "actions": "İşlemler",
         "device_fingerprint": "Cihaz Parmak İzi",
+        "show_all_quotas": "Tüm kotaları göster",
         "device_fingerprint_dialog": {
             "title": "Cihaz Parmak İzi",
             "operations": "Cihaz Parmak İzi İşlemleri",
@@ -202,7 +203,12 @@
                 "link_click_to_copy": "Kopyalamak için tıklayın",
                 "manual_hint": "Tarayıcı otomatik olarak yönlendirilmedi mi? Lütfen geri dönüş bağlantısını veya Yetkilendirme Kodunu buraya yapıştırın:",
                 "manual_placeholder": "Bağlantıyı veya kodu buraya yapıştırın...",
-                "error_no_flow": "Aktif kimlik doğrulama akışı bulunamadı. Lütfen OAuth'u yeniden başlatın."
+                "error_no_flow": "Aktif kimlik doğrulama akışı bulunamadı. Lütfen OAuth'u yeniden başlatın.",
+                "web_hint": "Google giriş sayfası yeni bir pencerede açılacak",
+                "error_no_url": "OAuth URL'si alınamadı",
+                "popup_blocked": "Açılır pencere engellendi",
+                "manual_submitting": "Yetkilendirme kodu gönderiliyor...",
+                "manual_submitted": "Yetkilendirme kodu gönderildi, arka planda işleniyor..."
             },
             "token": {
                 "label": "Refresh Token",
@@ -678,10 +684,10 @@
             "title": "Model Yönlendirici",
             "subtitle": "Modelleri serilere göre yönlendirin veya özel tam eşlemeler ekleyin.\nNot: Yerel Claude geçiş modelleri (örn. claude-opus-4-5-thinking) varsayılan olarak seri gruplarını atlar. Geçersiz kılmak için \"Uzman Özel Yönlendirme\" kullanın.",
             "subtitle_simple": "Joker karakterlerle veya tam eşlemelerle model yönlendirmeyi özelleştirin",
-            "background_task_title": "Background Task Model",
-            "background_task_desc": "Model used for Claude CLI background tasks like title generation, summary, etc. (Default: gemini-2.5-flash)",
-            "use_default": "Use System Default",
-            "current_model": "Current Model",
+            "background_task_title": "Arka Plan Görev Modeli",
+            "background_task_desc": "Başlık oluşturma, özetleme vb. Claude CLI arka plan görevleri için kullanılan model (Varsayılan: gemini-2.5-flash)",
+            "use_default": "Sistem Varsayılanını Kullan",
+            "current_model": "Mevcut Model",
             "apply_presets": "Ön Ayarları Uygula",
             "presets_applied": "Ön ayarlar başarıyla uygulandı",
             "custom_mappings": "Özel Eşlemeler",

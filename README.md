@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> 专业的 AI 账号管理与协议反代系统 (v4.0.12)
+> 专业的 AI 账号管理与协议反代系统 (v4.0.13)
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
 
@@ -8,7 +8,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-4.0.12-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-4.0.13-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -359,6 +359,26 @@ response = client.chat.completions.create(
 ## 📝 开发者与社区
 
 *   **版本演进 (Changelog)**:
+    *   **v4.0.13 (2026-02-02)**:
+        -   **[核心优化] 负载均衡算法升级 (P2C Algorithm) (PR #1433)**:
+            -   **算法升级**: 将原有的 Round-Robin (轮询) 算法升级为 P2C (Power of Two Choices) 负载均衡算法。
+            -   **性能提升**: 在高并发场景下显著减少了请求等待时间，并优化了后端实例的负载分布，避免了单点过载。
+        -   **[UI 升级] 响应式导航栏与布局优化 (Responsive Navbar) (PR #1429)**:
+            -   **移动端适配**: 全新设计的响应式导航栏，完美适配移动设备与小屏幕窗口。
+            -   **视觉增强**: 为导航项添加了直观的图标，提升了整体视觉体验与操作便捷性。
+        -   **[新功能] 账号配额可视化增强 (Show All Quotas) (PR #1429)**:
+            -   **显示所有配额**: 在账号列表页新增“显示所有配额”开关。开启后可一览 Ultra/Pro/Free/Image 等所有维度的实时配额信息，不再仅显示首要配额。
+        -   **[国际化] 全面多语言支持完善 (Full i18n Update)**:
+            -   **覆盖率提升**: 补全了繁体中文、日语、韩语、西班牙语、阿拉伯语等 10 种语言的缺失翻译键值。
+            -   **细节优化**: 修复了“显示所有配额”及 OAuth 授权流程中的提示语翻译缺失问题。
+        -   **[国际化] 后台任务翻译补全 (Translate Background Tasks) (PR #1421)**:
+            -   **翻译修复**: 修复了后台任务（如标题生成）的相关文本缺少翻译的问题，现在支持所有语言的本地化显示。
+            - **归因**: 修复了合并代码时引入的 `ref` 冲突导致移动端/桌面端点击判定异常。
+            - **结果**: 语言切换菜单现在可以正常打开和交互。
+        -   **[Docker/Web 修复] Web 端支持 IP 管理 (IP Security for Web)**:
+            - **功能补全**: 修复了在 Docker 或 Web 模式下，IP 安全管理功能（日志、黑白名单）因后端路由缺失而无法使用的问题。
+            - **API 实现**: 实现了完整的 RESTful 管理接口，确保 Web 前端能正常调用底层安全模块。
+            - **体验强化**: 优化了删除操作的参数传递逻辑，解决了部分浏览器下删除黑白名单失灵的问题。
     *   **v4.0.12 (2026-02-01)**:
         -   **[代码重构] 连接器服务优化 (Refactor Connector Service)**:
             -   **深度优化**: 重写了连接器服务 (`connector.rs`) 的核心逻辑，消除了历史遗留的低效代码。

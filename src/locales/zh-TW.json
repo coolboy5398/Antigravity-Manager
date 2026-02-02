@@ -139,6 +139,7 @@
         "switch_to": "切換到此帳號",
         "actions": "操作",
         "device_fingerprint": "裝置指紋",
+        "show_all_quotas": "顯示所有配額",
         "device_fingerprint_dialog": {
             "title": "裝置指紋",
             "operations": "裝置指紋操作",
@@ -209,7 +210,12 @@
                 "link_click_to_copy": "點選複製",
                 "manual_hint": "瀏覽器沒有自動跳轉？請在此處貼上回調連結或 Authorization Code：",
                 "manual_placeholder": "在此處貼上連結或代碼...",
-                "error_no_flow": "未找到活躍的授權流程，請重新開始 OAuth 授權。"
+                "error_no_flow": "未找到活躍的授權流程，請重新開始 OAuth 授權。",
+                "web_hint": "將在新視窗中開啟 Google 登入頁",
+                "error_no_url": "無法獲取 OAuth URL",
+                "popup_blocked": "彈窗被攔截，請允許彈出視窗",
+                "manual_submitting": "正在提交認證碼...",
+                "manual_submitted": "認證碼已提交，後台處理中..."
             },
             "token": {
                 "label": "Refresh Token",
@@ -703,10 +709,10 @@
             "title": "模型路由中心 (Model Router)",
             "subtitle": "按“規格家族”統一路由 OpenAI/Claude 模型，或新增最高優先順序的“精確對映”。\n注意：Claude 原生直通模型（claude-opus-4-5-thinking 等 3 個）預設直通，需在“專家精確對映”中新增規則才能修改。",
             "subtitle_simple": "透過萬用字元或精確對映自定義模型路由規則",
-            "background_task_title": "Background Task Model",
-            "background_task_desc": "Model used for Claude CLI background tasks like title generation, summary, etc. (Default: gemini-2.5-flash)",
-            "use_default": "Use System Default",
-            "current_model": "Current Model",
+            "background_task_title": "後台任務模型",
+            "background_task_desc": "用於 Claude CLI 後台任務的模型,如標題生成、總結等。(預設: gemini-2.5-flash)",
+            "use_default": "使用系統預設",
+            "current_model": "目前模型",
             "apply_presets": "應用預設對映",
             "presets_applied": "預設對映已應用",
             "custom_mappings": "自定義對映 (Custom Mappings)",

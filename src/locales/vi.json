@@ -139,6 +139,7 @@
         "switch_to": "Chuyển sang tài khoản này",
         "actions": "Thao tác",
         "device_fingerprint": "Vân Tay Thiết Bị",
+        "show_all_quotas": "Hiển thị tất cả hạn ngạch",
         "device_fingerprint_dialog": {
             "title": "Vân Tay Thiết Bị",
             "operations": "Các Thao Tác Vân Tay Thiết Bị",
@@ -209,7 +210,12 @@
                 "link_click_to_copy": "Nhấn để sao chép",
                 "manual_hint": "Trình duyệt không tự động chuyển hướng? Vui lòng dán liên kết phản hồi hoặc Mã xác thực tại đây:",
                 "manual_placeholder": "Dán liên kết hoặc mã tại đây...",
-                "error_no_flow": "Không tìm thấy luồng xác thực hoạt động. Vui lòng bắt đầu lại OAuth."
+                "error_no_flow": "Không tìm thấy luồng xác thực hoạt động. Vui lòng bắt đầu lại OAuth.",
+                "web_hint": "Trang đăng nhập Google sẽ mở trong cửa sổ mới",
+                "error_no_url": "Không thể lấy URL OAuth",
+                "popup_blocked": "Cửa sổ bật lên bị chặn",
+                "manual_submitting": "Đang gửi mã xác thực...",
+                "manual_submitted": "Mã xác thực đã gửi, đang xử lý ngầm..."
             },
             "token": {
                 "label": "Refresh Token",
@@ -709,10 +715,10 @@
             "title": "Bộ Định tuyến Model (Router)",
             "subtitle": "Định tuyến model theo nhóm (Series) hoặc thêm ánh xạ chính xác.\nLưu ý: Các native model Claude (ví dụ: claude-opus-4-5-thinking) mặc định sẽ bỏ qua nhóm series và đi thẳng. Dùng \"Định tuyến Tùy chỉnh Cao cấp\" để ghi đè.",
             "subtitle_simple": "Tùy chỉnh định tuyến model với ký tự đại diện hoặc ánh xạ chính xác",
-            "background_task_title": "Background Task Model",
-            "background_task_desc": "Model used for Claude CLI background tasks like title generation, summary, etc. (Default: gemini-2.5-flash)",
-            "use_default": "Use System Default",
-            "current_model": "Current Model",
+            "background_task_title": "Mô hình tác vụ nền",
+            "background_task_desc": "Mô hình được sử dụng cho các tác vụ nền của Claude CLI như tạo tiêu đề, tóm tắt, v.v. (Mặc định: gemini-2.5-flash)",
+            "use_default": "Sử dụng mặc định hệ thống",
+            "current_model": "Mô hình hiện tại",
             "apply_presets": "Áp dụng Cài sẵn",
             "presets_applied": "Đã áp dụng cài đặt sẵn thành công",
             "custom_mappings": "Ánh xạ Tùy chỉnh",
