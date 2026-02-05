@@ -28,10 +28,10 @@ pub fn wrap_request(
     crate::proxy::mappers::common_utils::deep_clean_undefined(&mut inner_request);
 
     // [FIX #1522] Inject dummy IDs for Claude models in Gemini protocol
-    // Google v1internal requires 'id' for tool calls when the model is Claude, 
+    // Google v1internal requires 'id' for tool calls when the model is Claude,
     // even though the standard Gemini protocol doesn't have it.
     let is_target_claude = final_model_name.to_lowercase().contains("claude");
-    
+
     if let Some(contents) = inner_request.get_mut("contents").and_then(|c| c.as_array_mut()) {
         for content in contents {
             // 每条消息维护独立的计数器，确保 Call 和对应的 Response 生成相同的 ID (兜底规则)
@@ -47,12 +47,12 @@ pub fn wrap_request(
                                 let count = name_counters.entry(name.to_string()).or_insert(0);
                                 let call_id = format!("call_{}_{}", name, count);
                                 *count += 1;
-                                
+
                                 fc.as_object_mut().unwrap().insert("id".to_string(), json!(call_id));
                                 tracing::debug!("[Gemini-Wrap] Request stage: Injected missing call_id '{}' for Claude model", call_id);
                             }
                         }
-                        
+
                         // 2. 处理 functionResponse (User 回复工具结果)
                         if let Some(fr) = obj.get_mut("functionResponse") {
                             if fr.get("id").is_none() && is_target_claude {
@@ -62,7 +62,7 @@ pub fn wrap_request(
                                 let count = name_counters.entry(name.to_string()).or_insert(0);
                                 let call_id = format!("call_{}_{}", name, count);
                                 *count += 1;
-                                
+
                                 fr.as_object_mut().unwrap().insert("id".to_string(), json!(call_id));
                                 tracing::debug!("[Gemini-Wrap] Request stage: Injected synced response_id '{}' for Claude model", call_id);
                             }
@@ -112,13 +112,13 @@ pub fn wrap_request(
              // For safety, only auto-inject for models we usually want thinking on:
              // - any with "thinking" in name
              // - gemini-3-pro / gemini-2.0-pro
-             let should_inject = lower_model.contains("thinking") || 
-                                 lower_model.contains("gemini-2.0-pro") || 
+             let should_inject = lower_model.contains("thinking") ||
+                                 lower_model.contains("gemini-2.0-pro") ||
                                  lower_model.contains("gemini-3-pro");
-                                 
+
              if should_inject {
                  tracing::debug!("[Gemini-Wrap] Auto-injecting default thinkingConfig for {}", final_model_name);
-                 
+
                  // Use a safe default budget or let auto-capping handle it (if we set something high)
                  // But wait, if we set it here, the capping logic below will see it and clamp it if needed.
                  // Let's rely on global default logic if possible, or hardcode a safe default.
@@ -159,7 +159,7 @@ pub fn wrap_request(
                             // 自动模式：应用 24576 capping (向后兼容)
                             if budget > 24576 {
                                 tracing::info!(
-                                    "[Gemini-Wrap] Auto mode: capping thinking_budget from {} to 24576 for model {}", 
+                                    "[Gemini-Wrap] Auto mode: capping thinking_budget from {} to 24576 for model {}",
                                     budget, final_model_name
                                 );
                                 24576
@@ -250,6 +250,20 @@ pub fn wrap_request(
     // Inject googleSearch tool if needed
     if config.inject_google_search {
         crate::proxy::mappers::common_utils::inject_google_search_tool(&mut inner_request);
+
+        // [FIX] Remove thinkingConfig when downgraded to gemini-2.5-flash for web search
+        // gemini-2.5-flash does not support thinking_level parameter
+        if config.final_model == "gemini-2.5-flash" {
+            if let Some(gen_config) = inner_request.get_mut("generationConfig") {
+                if let Some(gen_obj) = gen_config.as_object_mut() {
+                    if gen_obj.remove("thinkingConfig").is_some() {
+                        tracing::info!(
+                            "[Gemini-Wrap] Removed thinkingConfig for web_search (gemini-2.5-flash does not support thinking)"
+                        );
+                    }
+                }
+            }
+        }
     }
 
     // Inject imageConfig if present (for image generation models)
@@ -365,7 +379,7 @@ pub fn unwrap_response(response: &Value) -> Value {
 }
 
 /// [NEW v3.3.18] 为 Claude 模型的 Gemini 响应自动注入 Tool ID
-/// 
+///
 /// 目点是为了让客户端（如 OpenCode/Vercel AI SDK）能感知到 ID，
 /// 并在下一轮对话中原样带回，从而满足 Google v1internal 对 Claude 模型的校验。
 pub fn inject_ids_to_response(response: &mut Value, model_name: &str) {
@@ -384,7 +398,7 @@ pub fn inject_ids_to_response(response: &mut Value, model_name: &str) {
                             let count = name_counters.entry(name.to_string()).or_insert(0);
                             let call_id = format!("call_{}_{}", name, count);
                             *count += 1;
-                            
+
                             fc.insert("id".to_string(), json!(call_id));
                             tracing::debug!("[Gemini-Wrap] Response stage: Injected synthetic call_id '{}' for client", call_id);
                         }
@@ -571,7 +585,7 @@ mod tests {
     fn test_gemini_pro_thinking_budget_processing() {
         // Update global config to Custom mode to verify logic execution
         use crate::proxy::config::{ThinkingBudgetConfig, ThinkingBudgetMode, update_thinking_budget_config};
-        
+
         // Save old config (optional, but good practice if tests ran in parallel, but here it's fine)
         update_thinking_budget_config(ThinkingBudgetConfig {
             mode: ThinkingBudgetMode::Custom,
@@ -592,7 +606,7 @@ mod tests {
         let result = wrap_request(&body, "test-proj", "gemini-3-pro-preview", None);
         let req = result.get("request").unwrap();
         let gen_config = req.get("generationConfig").unwrap();
-        
+
         let budget = gen_config["thinkingConfig"]["thinkingBudget"]
             .as_u64()
             .unwrap();
@@ -618,14 +632,14 @@ mod tests {
         let result = wrap_request(&body, "test-proj", "gemini-3-pro-preview", None);
         let req = result.get("request").unwrap();
         let gen_config = req.get("generationConfig").unwrap();
-        
+
         // Should have auto-injected thinkingConfig
         assert!(gen_config.get("thinkingConfig").is_some(), "Should auto-inject thinkingConfig for gemini-3-pro");
-        
+
         let budget = gen_config["thinkingConfig"]["thinkingBudget"]
             .as_u64()
             .unwrap();
-            
+
         // Default injected value is 16000
         assert_eq!(budget, 16000);
     }
