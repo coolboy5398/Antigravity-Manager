@@ -175,17 +175,10 @@ impl TokenManager {
                 Ok(())
             }
             Ok(None) => {
+                // [FIX] 账号被禁用或不可用时，从内存池中彻底移除 (Issue #1565)
                 // load_single_account returning None means the account should be skipped in its
                 // current state (disabled / proxy_disabled / quota_protection / validation_blocked...).
-                // Purge any existing in-memory cache to avoid selecting a disabled account.
                 self.remove_account(account_id);
-                // Ensure preferred account flag is cleared even under contention.
-                {
-                    let mut preferred = self.preferred_account_id.write().await;
-                    if preferred.as_deref() == Some(account_id) {
-                        *preferred = None;
-                    }
-                }
                 Ok(())
             }
             Err(e) => Err(format!("同步账号失败: {}", e)),

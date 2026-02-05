@@ -58,11 +58,11 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
 
 
   // Debug Console
-  'enable_debug_console': { url: '/api/proxy/debug/enable', method: 'POST' },
-  'disable_debug_console': { url: '/api/proxy/debug/disable', method: 'POST' },
-  'is_debug_console_enabled': { url: '/api/proxy/debug/enabled', method: 'GET' },
-  'get_debug_console_logs': { url: '/api/proxy/debug/logs', method: 'GET' },
-  'clear_debug_console_logs': { url: '/api/proxy/debug/logs/clear', method: 'POST' },
+  'enable_debug_console': { url: '/api/debug/enable', method: 'POST' },
+  'disable_debug_console': { url: '/api/debug/disable', method: 'POST' },
+  'is_debug_console_enabled': { url: '/api/debug/enabled', method: 'GET' },
+  'get_debug_console_logs': { url: '/api/debug/logs', method: 'GET' },
+  'clear_debug_console_logs': { url: '/api/debug/logs/clear', method: 'POST' },
 
   // CLI Sync
   'get_cli_sync_status': { url: '/api/proxy/cli/status', method: 'POST' },
@@ -143,6 +143,13 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'renew_user_token': { url: '/api/user-tokens/:id/renew', method: 'POST' },
   'delete_user_token': { url: '/api/user-tokens/:id', method: 'DELETE' },
   'update_user_token': { url: '/api/user-tokens/:id', method: 'PATCH' },
+
+  // Proxy Pool (Web Mode Fix)
+  'get_proxy_pool_config': { url: '/api/proxy/pool/config', method: 'GET' },
+  'get_all_account_bindings': { url: '/api/proxy/pool/bindings', method: 'GET' },
+  'bind_account_proxy': { url: '/api/proxy/pool/bind', method: 'POST' },
+  'unbind_account_proxy': { url: '/api/proxy/pool/unbind', method: 'POST' },
+  'get_account_proxy_binding': { url: '/api/proxy/pool/binding/:accountId', method: 'GET' },
 };
 
 export async function request<T>(cmd: string, args?: any): Promise<T> {
