@@ -815,6 +815,7 @@ pub async fn fetch_quota_with_retry(account: &mut Account) -> crate::error::AppR
                 account.disabled_at = Some(chrono::Utc::now().timestamp());
                 account.disabled_reason = Some(format!("invalid_grant: {}", e));
                 let _ = save_account(account);
+                crate::proxy::server::trigger_account_reload(&account.id);
             }
             return Err(AppError::OAuth(e));
         }
@@ -914,6 +915,7 @@ pub async fn fetch_quota_with_retry(account: &mut Account) -> crate::error::AppR
                             account.disabled_at = Some(chrono::Utc::now().timestamp());
                             account.disabled_reason = Some(format!("invalid_grant: {}", e));
                             let _ = save_account(account);
+                            crate::proxy::server::trigger_account_reload(&account.id);
                         }
                         return Err(AppError::OAuth(e));
                     }
@@ -1011,10 +1013,11 @@ pub async fn refresh_all_quotas_logic() -> Result<RefreshStats, String> {
     let tasks: Vec<_> = accounts
         .into_iter()
         .filter(|account| {
-            if account.disabled {
+            if account.disabled || account.proxy_disabled {
                 crate::modules::logger::log_info(&format!(
-                    "  - Skipping {} (Disabled)",
-                    account.email
+                    "  - Skipping {} ({})",
+                    account.email,
+                    if account.disabled { "Disabled" } else { "Proxy Disabled" }
                 ));
                 return false;
             }
