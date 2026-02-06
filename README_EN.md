@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> Professional AI Account Management & Protocol Proxy System (v4.1.6)
+> Professional AI Account Management & Protocol Proxy System (v4.1.7)
 
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
@@ -9,7 +9,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-4.1.6-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-4.1.7-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -229,6 +229,13 @@ export ANTHROPIC_BASE_URL="http://127.0.0.1:8045"
 claude
 ```
 
+### How to use with OpenCode?
+1. Go to **API Proxy** → **External Providers** → click the **OpenCode Sync** card.
+2. Click **Sync** to generate `~/.config/opencode/opencode.json` with proxy baseURL and apiKey (supports both Anthropic and Google providers).
+3. Optional: Check **Sync accounts** to export `antigravity-accounts.json` for OpenCode plugin usage.
+4. On Windows, the path is `C:\Users\<User>\.config\opencode\` (same `~/.config/opencode` rule).
+5. Use the **Restore** button to revert from backup if needed.
+
 ### How to use in Python?
 ```python
 import openai
@@ -248,6 +255,41 @@ print(response.choices[0].message.content)
 ## 📝 Developer & Community
 
 *   **Changelog**:
+    *   **v4.1.7 (2026-02-06)**:
+        -   **[Core Fix] Fixed Image API Account Rotation on 429/500/503 Errors (Issue #1622)**:
+            -   **Automatic Retry**: Implemented automatic retry and account rotation logic for `images/generations` and `images/edits`, aligning with the robustness of the Chat API.
+            -   **Consistent Experience**: Requests now automatically failover to the next available account when quota is exhausted or upstream service is unavailable, ensuring high availability.
+        -   **[Core Feature] Add Custom Label Support for Accounts (PR #1620)**:
+            -   **Label Management**: Supports setting personalized labels for each account for easier identification in multi-account environments.
+            -   **UI Optimization**: Directly view and edit labels inline in both account list and card views.
+            -   **I18n Support**: Full support for both Chinese and English localization.
+        -   **[Core Fix] Handle NULL values in `get_stats` when database is empty (PR #1578)**:
+            -   **NULL Handling**: Wrapped `SUM()` calls with `COALESCE(..., 0)` to ensure numeric values are always returned, fixing type conversion errors in `rusqlite` when no logs exist.
+            -   **Performance Retention**: Preserved the optimized single-query architecture from the local branch for statistical data retrieval.
+
+        -   **[Core Fix] Claude 403 Error Handling & Account Rotation Optimization (PR #1616)**:
+            -   **403 Status Mapping**: Mapped 403 (Forbidden) errors to 503 (Service Unavailable) to prevent clients (e.g., Claude Code) from automatically logging out.
+            -   **Auto-Disable Logic**: Automatically marks accounts as `is_forbidden` and removes them from the active memory pool upon encountering 403 errors.
+            -   **Temporary Risk Control detection**: Identifies `VALIDATION_REQUIRED` errors and implements a 10-minute temporary block for affected accounts.
+            -   **Rotation Stability**: Fixed premature returns during `QUOTA_EXHAUSTED` errors, ensuring the system correctly attempts to rotate to the next available account.
+        -   **[Core Feature] OpenCode CLI Configuration Sync Integration (PR #1614)**:
+            -   **One-click Sync**: Automatically generates `~/.config/opencode/opencode.json` with proper provider settings for Anthropic and Google.
+            -   **Account Export**: Optionally syncs accounts to `antigravity-accounts.json` for OpenCode plugin compatibility.
+            -   **Backup & Restore**: Automatically creates a backup before syncing, with the ability to restore previous configurations.
+            -   **Cross-platform Support**: Consistent support across Windows, macOS, and Linux.
+            -   **Experience Optimization**: Fixed RPC parameter wrapping, completed i18n translations, and optimized view state when the configuration file is missing.
+        -   **[Core Feature] Allow Hiding Unused Menu Items (PR #1610)**:
+            -   **Visibility Control**: Added "Menu Item Visibility Settings" in the settings page, allowing users to customize sidebar navigation items.
+            -   **UI Refinement**: Provides a cleaner interface for minimalist users by hiding unused feature entries.
+        -   **[Core Fix] Gemini Native Protocol Image Generation Full Fix (Issue #1573, #1625)**:
+            -   **400 Error Fix**: Resolved `INVALID_ARGUMENT` errors in Gemini native image generation caused by the missing `role: "user"` field in the `contents` array.
+            -   **Parameter Passthrough**: Ensured `generationConfig.imageConfig` (e.g., `aspectRatio`, `imageSize`) is correctly passed to the upstream API without getting filtered.
+            -   **Error Code Optimization**: Optimized error mapping for image generation services, ensuring 429/503 statuses correctly trigger client-side retries.
+        -   **[Core Enhancement] Custom Mapping Supports Manual Input for Any Model ID**:
+            -   **Flexible Input**: Added manual input functionality to the custom mapping target model selector. Users can now directly enter any model ID at the bottom of the dropdown menu.
+            -   **Unreleased Model Experience**: Supports experiencing models not yet officially released by Antigravity, such as `claude-opus-4-6`. Users can route requests to these experimental models through custom mappings.
+            -   **Important Notice**: Not all accounts support calling unreleased models. If your account lacks access to a specific model, requests may return errors. It is recommended to test with a small number of requests first to confirm account permissions before large-scale use.
+            -   **Quick Operation**: Supports Enter key for quick submission of custom model IDs, improving input efficiency.
     *   **v4.1.6 (2026-02-06)**:
         -   **[Core Fix] Deep Refactor of Claude/Gemini Thinking Model Interruptions & Tool Loop Recovery (#1575)**:
             -   **Thinking Recovery**: Introduced `thinking_recovery` mechanism. Automatically strips stale thinking blocks and guides the model when status loops or interruptions are detected, enhancing stability in complex tool-calling scenarios.
@@ -314,12 +356,7 @@ print(response.choices[0].message.content)
             -   **finish_reason Enforcement**: Fixed the issue where `finish_reason` was incorrectly set to `stop` during tool calls, causing OpenAI clients to prematurely terminate conversations. The system now forcibly sets `finish_reason` to `tool_calls` when tool calls are present, ensuring proper tool loop execution.
             -   **Tool Parameter Standardization**: Implemented automatic standardization of shell tool parameter names, converting non-standard names like `cmd`/`code`/`script` (which Gemini may generate) to the standard `command` parameter, improving tool call compatibility.
             -   **Impact Scope**: Fixed the tool call workflow for Thinking models (e.g., `claude-sonnet-4-5-thinking`) under the OpenAI protocol, resolving interruption issues in clients like OpenCode.
-    *   **v4.1.4 (2026-02-05)**:
-        - **Bug Fixes**:
-            - **Gemini Native Protocol Image Generation Parameter Support (Issue #1573)**: Fixed the issue where `generationConfig.imageConfig` parameters were ignored when using the Gemini native protocol. The system now correctly parses and applies image configuration parameters such as `aspectRatio` and `imageSize`.
-                - **Priority Strategy**: Prioritizes parsing parameters from the request body's `generationConfig.imageConfig`, while retaining model name suffix as a backward-compatible fallback.
-                - **Protocol Consistency**: Ensures unified parameter handling logic for image generation across Gemini, OpenAI, and Claude protocols.
-                - **Impact Scope**: Fixed the call chain across 9 files, including core modules like `common_utils.rs`, `gemini.rs`, and `wrapper.rs`.
+
     *   **v4.1.3 (2026-02-05)**:
         -   **[Core Fix] Resolve Security Config and IP Management Failures in Web/Docker Mode (Issue #1560)**:
             -   **Protocol Alignment**: Fixed the issue where the backend Axum interface could not parse nested parameter formats (e.g., `{"config": ...}`) wrapped by the frontend `invoke` method, ensuring security configurations are correctly persisted.

@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> 专业的 AI 账号管理与协议反代系统 (v4.1.6)
+> 专业的 AI 账号管理与协议反代系统 (v4.1.7)
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
 
@@ -8,7 +8,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-4.1.6-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-4.1.7-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -240,6 +240,13 @@ export ANTHROPIC_BASE_URL="http://127.0.0.1:8045"
 claude
 ```
 
+### 如何接入 OpenCode?
+1.  进入 **API 反代**页面 → **外部 Providers** → 点击 **OpenCode Sync** 卡片。
+2.  点击 **Sync** 按钮，将自动生成 `~/.config/opencode/opencode.json` 配置文件（包含代理 baseURL 与 apiKey，支持 Anthropic/Google 双 Provider）。
+3.  可选：勾选 **Sync accounts** 可同时导出 `antigravity-accounts.json` 账号列表，供 OpenCode 插件直接导入使用。
+4.  Windows 用户路径为 `C:\Users\<用户名>\.config\opencode\`（与 `~/.config/opencode` 规则一致）。
+5.  如需回滚，可点击 **Restore** 按钮从备份恢复之前的配置。
+
 ### 如何接入 Kilo Code?
 1.  **协议选择**: 建议优先使用 **Gemini 协议**。
 2.  **Base URL**: 填写 `http://127.0.0.1:8045`。
@@ -361,6 +368,42 @@ response = client.chat.completions.create(
 ## 📝 开发者与社区
 
 *   **版本演进 (Changelog)**:
+    *   **v4.1.7 (2026-02-06)**:
+        -   **[核心修复] 修复图像生成 API (429/500/503) 自动切换账号问题 (Issue #1622)**:
+            -   **自动重试**: 为 `images/generations` 和 `images/edits` 引入了与 Chat API 一致的自动重试与账号轮换机制。
+            -   **体验一致性**: 确保在某个账号配额耗尽或服务不可用时，请求能自动故障转移到下一个可用账号，不再直接失败。
+        -   **[核心功能] 新增账户自定义标签支持 (PR #1620)**:
+            -   **标签管理**: 支持为每个账户设置个性化标签，方便在多账户环境下快速识别。
+            -   **交互优化**: 账户列表和卡片视图均支持直接查看和内联编辑标签。
+            -   **多语言支持**: 完整适配中、英双语显示。
+        -   **[核心修复] 修复数据库为空时 `get_stats` 返回 NULL 导致崩溃的问题 (PR #1578)**:
+            -   **NULL 值处理**: 在 SQL 查询中使用 `COALESCE(SUM(...), 0)` 确保在没有日志记录时依然返回数值，解决了 `rusqlite` 无法将 `NULL` 转换为 `u64` 的问题。
+            -   **性能保留**: 保留了本地分支中通过单次查询获取多项统计数据的性能优化逻辑。
+
+        -   **[核心修复] Claude 403 错误处理与账号轮换优化 (PR #1616)**:
+            -   **403 状态映射**: 将 403 (Forbidden) 错误映射为 503 (Service Unavailable)，防止客户端（如 Claude Code）因检测到 403 而自动登出。
+            -   **自动禁用逻辑**: 检测到 403 错误时自动将账号标记为 `is_forbidden` 并从活跃池中移除，避免该账号在接下来的请求中被继续选中。
+            -   **临时风控识别**: 识别 `VALIDATION_REQUIRED` 错误，并对相关账号执行 10 分钟的临时阻断。
+            -   **轮换稳定性**: 修复了在账号额度耗尽 (QUOTA_EXHAUSTED) 时的过早返回问题，确保系统能正确尝试轮换到下一个可用账号。
+        -   **[核心功能] OpenCode CLI 配置同步集成 (PR #1614)**:
+            -   **一键同步**: 自动生成 `~/.config/opencode/opencode.json`，支持 Anthropic 和 Google 双 Provider 自动配置。
+            -   **账号导出**: 可选同步账号列表至 `antigravity-accounts.json`，供 OpenCode 插件直接导入。
+            -   **备份与还原**: 同步前自动备份原有配置，支持一键还原。
+            -   **跨平台支持**: 统一适配 Windows、macOS 和 Linux 环境。
+            -   **体验优化**: 修复了 RPC 参数包装问题，补全了多语言翻译，并优化了配置文件不存在时的视图状态。
+        -   **[核心功能] 允许隐藏未使用的菜单项 (PR #1610)**:
+            -   **可见性控制**: 在设置页面新增“菜单项显示设置”，允许用户自定义侧边栏显示的导航项。
+            -   **界面美化**: 为极简用户提供更清爽的界面，隐藏不常用的功能入口。
+
+        -   **[核心修复] Gemini 原生协议图像生成完全修复 (Issue #1573, #1625)**:
+            -   **400 错误修复**: 修复了 Gemini 原生协议生成图片时，因请求体 `contents` 数组缺失 `role: "user"` 字段导致的 `INVALID_ARGUMENT` 错误。
+            -   **参数透传支持**: 确保 `generationConfig.imageConfig` (如 `aspectRatio`, `imageSize`) 能正确透传给上游，不再被错误过滤。
+            -   **错误码优化**: 优化了图像生成服务的错误映射，确保 429/503 等状态码能正确触发客户端的重试机制。
+        -   **[核心增强] 自定义映射支持手动输入任意模型 ID**:
+            -   **灵活输入**: 在自定义映射的目标模型选择器中新增手动输入功能，用户现在可以在下拉菜单底部直接输入任意模型 ID。
+            -   **未发布模型体验**: 支持体验 Antigravity 尚未正式发布的模型，例如 `claude-opus-4-6`。用户可以通过自定义映射将请求路由到这些实验性模型。
+            -   **重要提示**: 并非所有账号都支持调用未发布的模型。如果您的账号无权访问某个模型，请求可能会返回错误。建议先在少量请求中测试，确认账号权限后再大规模使用。
+            -   **快捷操作**: 支持 Enter 键快速提交自定义模型 ID，提升输入效率。
     *   **v4.1.6 (2026-02-06)**:
         -   **[核心修复] 深度重构 Claude/Gemini 思考模型中断与工具循环自愈逻辑 (#1575)**:
             -   **思考异常恢复**: 引入了 `thinking_recovery` 机制。当检测到历史消息中包含陈旧思考块或陷入状态循环时，自动进行剥离与引导，提升了在复杂工具调用场景下的稳定性。
@@ -427,12 +470,7 @@ response = client.chat.completions.create(
             -   **finish_reason 强制修正**: 修复了工具调用时 `finish_reason` 被错误设置为 `stop` 导致 OpenAI 客户端提前终止对话的问题。现在系统会强制将有工具调用的响应 `finish_reason` 设置为 `tool_calls`，确保工具循环正常运行。
             -   **工具参数标准化**: 实现了 shell 工具参数名称的自动标准化，将 Gemini 可能生成的 `cmd`/`code`/`script` 等非标准参数名统一转换为 `command`，提升了工具调用的兼容性。
             -   **影响范围**: 修复了 OpenAI 协议下 Thinking 模型（如 `claude-sonnet-4-5-thinking`）的工具调用流程，解决了 OpenCode 等客户端的中断问题。
-    *   **v4.1.4 (2026-02-05)**:
-        - **Bug 修复 (Bug Fixes)**:
-            - **Gemini 原生协议图像生成参数支持 (Issue #1573)**: 修复了使用 Gemini 原生协议时 `generationConfig.imageConfig` 参数被忽略的问题。现在系统能正确解析并应用 `aspectRatio` 和 `imageSize` 等图像配置参数。
-                - **优先级策略**: 优先从请求体的 `generationConfig.imageConfig` 解析参数，保留模型名后缀作为向后兼容方案。
-                - **协议一致性**: 确保 Gemini、OpenAI、Claude 三大协议在图像生成场景下的参数处理逻辑统一。
-                - **影响范围**: 修复了 9 个文件的调用链，包括 `common_utils.rs`、`gemini.rs`、`wrapper.rs` 等核心模块。
+
     *   **v4.1.3 (2026-02-05)**:
         -   **[核心修复] 解决 Web/Docker 模式下安全配置与 IP 管理失效问题 (Issue #1560)**:
             -   **协议对齐**: 修复了后端 Axum 接口无法解析前端 `invoke` 封装的嵌套参数格式（如 `{"config": ...}`）的问题，确保安全配置能正确持久化。
