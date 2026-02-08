@@ -50,7 +50,7 @@ jobs:
           cache: "npm"
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build the app
         env:
@@ -116,6 +116,7 @@ jobs:
           body: "See the assets to download this version and install."
           draft: false
           prerelease: false
+          overwrite: true
           files: |
             src-tauri/target/**/release/bundle/dmg/*.dmg
             src-tauri/target/**/release/bundle/deb/*.deb
@@ -154,15 +155,15 @@ jobs:
           VERSION="${{ github.ref_name }}"
           echo "Extracting release notes for version $VERSION"
           
-          # Extract the section, remove leading 4 spaces dedent
+          # Extract the section, remove leading 8 spaces dedent
           awk -v ver="$VERSION" '
             BEGIN { capture=0 }
             # Match start line: "    *   **v4.1.0..."
-            $0 ~ "^[[:space:]]*\\*[[:space:]]+\\*\\*" ver { capture=1; next }
+            $0 ~ "^[[:space:]]*[*+-][[:space:]]+\\*\\*" ver { capture=1; next }
             # Match next version line to stop: "    *   **v..."
-            capture && $0 ~ "^[[:space:]]*\\*[[:space:]]+\\*\\*v" { capture=0; exit }
+            capture && $0 ~ "^[[:space:]]*[*+-][[:space:]]+\\*\\*v" { capture=0; exit }
             capture { print }
-          ' README.md | sed 's/^    //' > release_notes.md
+          ' README.md | sed 's/^[[:space:]]\{8\}//' > release_notes.md
           
           # If no notes found, add a default message
           if [ ! -s release_notes.md ]; then
@@ -201,6 +202,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           body_path: release_notes.md
+          overwrite: true
           files: updater.json
           # 确保不覆盖已存在的其他 assets (softprops/action-gh-release 默认是追加)
 
