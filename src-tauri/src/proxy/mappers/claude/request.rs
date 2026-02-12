@@ -458,7 +458,7 @@ pub fn transform_claude_request_in(
 
     // Check if thinking is enabled in the request
     let thinking_type = claude_req.thinking.as_ref().map(|t| t.type_.as_str());
-    let mut is_thinking_enabled = thinking_type == Some("enabled") || thinking_type == Some("adaptive") 
+    let mut is_thinking_enabled = thinking_type == Some("enabled") || thinking_type == Some("adaptive")
         || (thinking_type.is_none() && should_enable_thinking_by_default(&claude_req.model));
 
     // [NEW FIX] Check if target model supports thinking
@@ -1777,7 +1777,7 @@ fn build_generation_config(
                     || model_lower.ends_with("-thinking");
                 if is_gemini_limited && budget_tokens > 24576 {
                     tracing::info!(
-                        "[Claude-Request] Auto mode: capping thinking_budget from {} to 24576 for Gemini model {}", 
+                        "[Claude-Request] Auto mode: capping thinking_budget from {} to 24576 for Gemini model {}",
                         budget_tokens, mapped_model
                     );
                     24576
@@ -1813,7 +1813,7 @@ fn build_generation_config(
                 tracing::debug!("[Claude-Request] Mapping adaptive mode to dynamic budget (-1) for Gemini model");
                 thinking_config["thinkingBudget"] = json!(-1);
             }
-            
+
             // 针对自适应模式，如果没有显式设置，确保 maxOutputTokens 给足空间 (默认 131072)
             if config.get("maxOutputTokens").is_none() {
                 config["maxOutputTokens"] = json!(131072);
@@ -1821,17 +1821,17 @@ fn build_generation_config(
         } else {
             thinking_config["thinkingBudget"] = json!(budget);
         }
-        
+
         config["thinkingConfig"] = thinking_config;
 
         // [NEW] 如果存在 effort，除了设置 thinkingLevel 外，也保留 effortLevel 以确保最大程度的协议兼容性
         if let Some(e) = effort {
-            config["effortLevel"] = json!(match e.to_lowercase().as_str() {
-                "high" | "max" => "HIGH",
-                "medium" => "MEDIUM",
-                "low" => "LOW",
-                _ => "HIGH",
-            });
+            // config["effortLevel"] = json!(match e.to_lowercase().as_str() {
+            //     "high" | "max" => "HIGH",
+            //     "medium" => "MEDIUM",
+            //     "low" => "LOW",
+            //     _ => "HIGH",
+            // });
         }
     }
 
@@ -1864,7 +1864,7 @@ fn build_generation_config(
     let tb_config_chk = crate::proxy::config::get_thinking_budget_config();
     let global_adaptive = matches!(tb_config_chk.mode, crate::proxy::config::ThinkingBudgetMode::Adaptive);
     let req_adaptive = claude_req.thinking.as_ref().map(|t| t.type_ == "adaptive").unwrap_or(false);
-    
+
     let is_adaptive_effective = (req_adaptive || global_adaptive) && model_lower.contains("claude");
     let final_overhead = if is_adaptive_effective { 131072 } else { 32768 };
 
@@ -1879,7 +1879,7 @@ fn build_generation_config(
                 let overhead = if mapped_model.contains("-image") { 2048 } else { 8192 };
                 final_max_tokens = Some((budget + overhead) as i64);
                 tracing::info!(
-                    "[Generation-Config] Bumping maxOutputTokens to {} due to thinking budget of {}", 
+                    "[Generation-Config] Bumping maxOutputTokens to {} due to thinking budget of {}",
                     final_max_tokens.unwrap(), budget
                 );
             }
@@ -2820,9 +2820,9 @@ mod tests {
         // 4. Verify thinkingConfig has includeThoughts: false
         let gen_config = result["request"]["generationConfig"].as_object().expect("Should have generationConfig");
         let thinking_config = gen_config.get("thinkingConfig").and_then(|t| t.as_object()).expect("Should have thinkingConfig (explicitly disabled)");
-        
+
         assert_eq!(thinking_config["includeThoughts"], false);
-        
+
         // 5. Reset global mode
         crate::proxy::config::update_image_thinking_mode(Some("enabled".to_string()));
     }
@@ -2860,7 +2860,7 @@ mod tests {
 
         // Transform
         let result = transform_claude_request_in(&req, "test-proj", false).unwrap();
-        
+
         let gen_config = result["request"]["generationConfig"].as_object().unwrap();
         let thinking_config = gen_config["thinkingConfig"].as_object().unwrap();
 
