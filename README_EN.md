@@ -1,5 +1,5 @@
 # Antigravity Tools 🚀
-> Professional AI Account Management & Protocol Proxy System (v4.1.15)
+> Professional AI Account Management & Protocol Proxy System (v4.1.17)
 
 <div align="center">
   <img src="public/icon.png" alt="Antigravity Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
@@ -9,7 +9,7 @@
   
   <p>
     <a href="https://github.com/lbjlaq/Antigravity-Manager">
-      <img src="https://img.shields.io/badge/Version-4.1.15-blue?style=flat-square" alt="Version">
+      <img src="https://img.shields.io/badge/Version-4.1.17-blue?style=flat-square" alt="Version">
     </a>
     <img src="https://img.shields.io/badge/Tauri-v2-orange?style=flat-square" alt="Tauri">
     <img src="https://img.shields.io/badge/Backend-Rust-red?style=flat-square" alt="Rust">
@@ -114,10 +114,28 @@ graph TD
 
 ## 📥 Installation
 
-### Option A: Terminal Installation (macOS & Linux Recommended)
+### Option A: Terminal Installation (Recommended)
 
-#### macOS
-If you have [Homebrew](https://brew.sh/) installed, run:
+#### Cross-Platform One-Line Install Scripts
+
+Automatically detects your OS, architecture, and package manager — one command to download and install.
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/lbjlaq/Antigravity-Manager/main/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/lbjlaq/Antigravity-Manager/main/install.ps1 | iex
+```
+
+> **Supported formats**: Linux (`.deb` / `.rpm` / `.AppImage`) | macOS (`.dmg`) | Windows (NSIS `.exe`)
+>
+> **Advanced usage**: Install a specific version `curl -fsSL ... | bash -s -- --version 4.1.17`, dry-run mode `curl -fsSL ... | bash -s -- --dry-run`
+
+#### macOS - Homebrew
+If you have [Homebrew](https://brew.sh/) installed, you can also install via:
 
 ```bash
 # 1. Tap the repository
@@ -138,7 +156,8 @@ curl -sSL https://raw.githubusercontent.com/lbjlaq/Antigravity-Manager/main/depl
 
 **Option 2: via Homebrew** (If you have [Linuxbrew](https://sh.brew.sh/) installed)
 ```bash
-brew tap lbjlaq/antigravity-manager https://github.com/lbjlaq/Antigravity-Manager/releases/download/v4.1.15/Antigravity_Tools_4.1.15_x64.dmg
+brew tap lbjlaq/antigravity-manager https://github.com/lbjlaq/Antigravity-Manager
+brew install --cask antigravity-tools
 ```
 
 #### Other Linux Distributions
@@ -264,6 +283,43 @@ print(response.choices[0].message.content)
 ## 📝 Developer & Community
 
 *   **Changelog**:
+    *   **v4.1.17 (2026-02-13)**:
+        -   **[UX] Auto-Update Experience Upgrade (PR #1923)**:
+            -   **Background Download**: Implemented silent background downloading of updates, no longer blocking user operations during the process.
+            -   **Progress Feedback**: Added a download progress bar to provide real-time status feedback.
+            -   **Restart Prompt**: A more user-friendly restart prompt appears after download completion, supporting "Restart Now" or "Restart Later".
+            -   **Logic Optimization**: Prioritized checking `updater.json` to reduce direct dependency on GitHub API, improving check speed.
+        -   **[Documentation] Cross-Platform Install Scripts (PR #1931)**:
+            -   **One-Click Install**: Updated Option A in README to recommend the cross-platform one-click installation script.
+        -   **[Community] Added Telegram Channel Entry**:
+            -   **Community Card**: Added a Telegram Channel card to the "Settings -> About" page, allowing users to quickly join the official channel for the latest updates.
+            -   **Layout Optimization**: Adjusted the grid layout of cards on the About page to fit 5 columns, ensuring a clean and organized interface.
+    *   **v4.1.16 (2026-02-12)**:
+        -   **[Core Fix] Resolve Claude Protocol (Thinking Model) 400 Errors (V4 Scheme)**:
+            -   **Protocol Alignment**: Completely fixed the `400 Invalid Argument` error caused by parameter structure mismatch when calling models like Claude 3.7/4.5 Thinking via proxy.
+            -   **Unified Injection**: Deprecated the conflicting root-level `thinking` field injection. Now uniformly uses the `generationConfig.thinkingConfig` nested structure recommended by Google's native protocol.
+            -   **Budget Adaptation**: Adapted a default 16k Thinking Budget for Claude models and resolved compilation/runtime exceptions caused by Rust borrow checker conflicts.
+        -   **[Bug Fix] Resolve OpenAI Streaming Usage Duplication (Issue #1915)**:
+            -   **Token Explosion Fix**: Fixed an issue in `stream=true` mode where the `usage` field was incorrectly appended to every data chunk, causing clients (like Cline/Roo Code) to report exponentially inflated token usage.
+        -   **[Core Feature] Enable Native Auto-Update for Linux Platform (PR #1891)**:
+            -   **Full Platform Coverage**: Added support for `linux-x86_64` and `linux-aarch64` platforms in `updater.json`, enabling Linux AppImage users to receive auto-update notifications.
+            -   **Workflow Optimization**: Automatically detects and reads `.AppImage.sig` signature files for Linux builds, completing the auto-update loop for macOS, Windows, and Linux.
+        -   **[New Feature] Cross-Platform One-Line Install Scripts (PR #1892)**:
+            -   **Simplified Installation**: Added `install.sh` (Linux/macOS) and `install.ps1` (Windows), supporting fully automated download, installation, and configuration via simple `curl` or `irm` commands.
+            -   **Smart Detection**: Automatically identifies OS, architecture, and package managers (DEB/RPM/AppImage/DMG/NSIS), with support for specific version pinning and Dry-Run mode.
+        -   **[Core Optimization] Decouple OpenCode Config from Local Binary & Custom Network Support (Issue #1869)**:
+            -   **Environment Decoupling**: The backend no longer enforces the presence of the `opencode` binary, allowing sync status management via configuration files in isolated environments like Docker.
+            -   **Custom BaseURL**: Added a "Custom Manager BaseURL" setting in the frontend, supporting manual specification of the Manager access address, perfectly resolving connection issues in Docker Compose networking and custom reverse proxy scenarios.
+            -   **Full Localization**: Added English and Chinese i18n support for the new features and fixed JSX rendering exceptions in the OpenCode sync modal.
+        -   **[UI Fix] Resolve indentation inconsistency in API proxy Python templates (PR #1879)**:
+            -   **Display Optimization**: Removed redundant leading spaces from Python code integration snippets to ensure copied code is immediately runnable without manual indentation adjustments.
+        -   **[Core Fix] Resolve effortLevel conflict in Gemini Image Generation caused by keyword matching (PR #1873)**:
+            -   **Logic Conflict Fix**: Completely fixed the HTTP 400 error where `gemini-3-pro-image` and its 4k/2k variants were incorrectly identified as supporting Adaptive Thinking due to the `gemini-3-pro` keyword, leading to the erroneous injection of `effortLevel`.
+        -   **[Docs Update] Full Guide for Gemini 3 Pro (Imagen 3) Image Generation**:
+            -   **Deep Dive**: Added [Gemini 3 Pro Image Generation Guide](docs/gemini-3-image-guide.md), providing detailed technical specs for aspect ratio mapping, quality levels, Image-to-Image API support, and magic suffix usage.
+        -   **[Installation] Official Homebrew Cask Maintenance**:
+            -   **Version Sync**: Updated `antigravity-tools.rb` Cask to v4.1.16, ensuring macOS and Linux users get the latest stable build via `brew install`.
+            -   **Parameter Scrubbing**: Added specific filtering for image generation models at the proxy layer to ensure incompatible generation parameters are no longer injected into non-thinking models.
     *   **v4.1.15 (2026-02-11)**:
         -   **[Core Feature] Enable Native Auto-Update for macOS and Windows (PR #1850)**:
             -   **End-to-End Auto-Update**: Enabled the native Tauri updater plugin, supporting in-app update checks, downloads, and installations.
